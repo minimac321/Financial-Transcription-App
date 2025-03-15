@@ -125,6 +125,28 @@ For simplicity, this application uses a basic authentication system with credent
 2. Implement proper token-based authentication
 3. Add role-based access control
 
-## License
 
-MIT
+# Setting Up OpenAI Integration
+
+To enable OpenAI integration for features like email generation and transcript analysis, you'll need to:
+
+1. Get an OpenAI API key from [OpenAI's platform](https://platform.openai.com/account/api-keys)
+2. Add the key to your `.env` file in the backend directory:
+
+```
+PORT=5001
+DATABASE_URL=postgres://postgres:admin@localhost:5432/finance_transcription
+OPENAI_API_KEY=your_openai_api_key_here
+SESSION_SECRET=your_session_secret
+```
+
+Replace `your_openai_api_key_here` with your actual OpenAI API key.
+
+## Troubleshooting
+
+If you see errors like "Request failed with status code 500" when trying to generate emails or transcribe audio:
+
+1. Check that your OpenAI API key is correctly set in the `.env` file
+2. Make sure you have sufficient credits on your OpenAI account
+3. Verify that the OpenAI package is installed: `npm install openai`
+4. Check the server logs for more detailed error information
