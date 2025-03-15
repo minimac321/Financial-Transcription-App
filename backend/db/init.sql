@@ -13,10 +13,14 @@ CREATE TABLE users (
 CREATE TABLE clients (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
+  surname VARCHAR(100),
+  company_name VARCHAR(100),
   industry VARCHAR(100),
   contact_person VARCHAR(100),
   email VARCHAR(100),
   phone VARCHAR(20),
+  age INTEGER,
+  risk_profile VARCHAR(10),
   created_by INTEGER REFERENCES users(id),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

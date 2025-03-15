@@ -18,7 +18,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
@@ -51,11 +51,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes (we'll implement these later)
+// Routes (make sure all are properly registered)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/clients', require('./routes/clients'));
 app.use('/api/meetings', require('./routes/meetings'));
-app.use('/api/transcripts', require('./routes/transcripts'));
+app.use('/api/transcripts', require('./routes/transcripts')); // This line is crucial
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
