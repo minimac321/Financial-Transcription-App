@@ -45,6 +45,3 @@ CREATE TABLE transcripts (
   soft_facts JSONB,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- Insert admin user
-INSERT INTO users (username, password) VALUES ('admin', 'password');
