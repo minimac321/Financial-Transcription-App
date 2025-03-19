@@ -6,7 +6,7 @@
 
 const config = {
     apiUrl: process.env.NODE_ENV === 'production' 
-      ? 'https://your-backend-domain.onrender.com' 
+      ? 'https://financial-transcription-app.onrender.com' 
       : '' // Empty string for development, which will use the proxy
   };
   
