@@ -30,15 +30,21 @@ router.get('/:id', async (req, res) => {
 
 // Create client
 router.post('/', async (req, res) => {
-  const { name, industry, contact_person, email, phone } = req.body;
+  const { name, surname, company_name, industry, email, phone, age, risk_profile } = req.body;
   const created_by = req.session.user.id;
+  console.log(`(POST) Created Client ${req.body}`);
+
   
   try {
     const result = await db.query(
-      'INSERT INTO clients (name, industry, contact_person, email, phone, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, industry, contact_person, email, phone, created_by]
+      `INSERT INTO clients 
+      (name, surname, company_name, industry, email, phone, age, risk_profile, created_by) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+      RETURNING *`,
+      [name, surname, company_name, industry, email, phone, age, risk_profile, created_by]
     );
     res.status(201).json(result.rows[0]);
+    console.log(`(POST) Created Client ${name} ${surname}`);
   } catch (error) {
     console.error('Error creating client:', error);
     res.status(500).json({ message: 'Server error creating client' });
@@ -48,12 +54,16 @@ router.post('/', async (req, res) => {
 // Update client
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, industry, contact_person, email, phone } = req.body;
+  console.log(`(PUT) Created Client ${req.body}`);
+  
+  const { name, surname, company_name, industry, email, phone, age, risk_profile } = req.body;
   
   try {
     const result = await db.query(
-      'UPDATE clients SET name = $1, industry = $2, contact_person = $3, email = $4, phone = $5 WHERE id = $6 RETURNING *',
-      [name, industry, contact_person, email, phone, id]
+      `UPDATE clients SET 
+      name = $1, surname = $2, company_name = $3, industry = $4, email = $5, phone = $6, age = $7, risk_profile = $8 
+      WHERE id = $9 RETURNING *`,
+      [name, surname, company_name, industry, email, phone, age, risk_profile, id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Client not found' });
@@ -73,6 +83,7 @@ router.delete('/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Client not found' });
     }
+    console.log(`Deleting client ${id}:`, error);
     res.json({ message: 'Client deleted successfully' });
   } catch (error) {
     console.error(`Error deleting client ${id}:`, error);

@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import styled from 'styled-components';
 import Layout from '../components/Layout';
-import { FaPlus, FaSpinner, FaCalendarAlt, FaUser, FaFileAudio } from 'react-icons/fa';
+import { FaPlus, FaSpinner, FaCalendarAlt, FaUser } from 'react-icons/fa';
+import config from '../config';
 
 const PageHeader = styled.div`
   display: flex;
@@ -305,11 +306,11 @@ const MeetingsPage = ({ user, onLogout }) => {
       setLoading(true);
       
       // Fetch meetings
-      const meetingsResponse = await axios.get('/api/meetings', { withCredentials: true });
+      const meetingsResponse = await axios.get(`${config.apiUrl}/api/meetings`, { withCredentials: true });
       setMeetings(meetingsResponse.data);
       
       // Fetch clients for the modal
-      const clientsResponse = await axios.get('/api/clients', { withCredentials: true });
+      const clientsResponse = await axios.get(`${config.apiUrl}/api/clients`, { withCredentials: true });
       setClients(clientsResponse.data);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -357,7 +358,7 @@ const MeetingsPage = ({ user, onLogout }) => {
     }
     
     try {
-      const response = await axios.post('/api/meetings', formData, { withCredentials: true });
+      const response = await axios.post(`${config.apiUrl}/api/meetings`, formData, { withCredentials: true });
       
       // Add clientName to the new meeting for display
       const client = clients.find(c => c.id === Number(formData.client_id));

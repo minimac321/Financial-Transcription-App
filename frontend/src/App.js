@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate} from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
@@ -11,6 +11,8 @@ import SettingsPage from './pages/SettingsPage';
 import NotFound from './pages/NotFound';
 import axios from 'axios';
 import './App.css';
+import config from './config';
+
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -21,7 +23,7 @@ function App() {
     // Check if user is authenticated
     const checkAuth = async () => {
       try {
-        const response = await axios.get('/api/auth/me', { withCredentials: true });
+        const response = await axios.get(`${config.apiUrl}/api/auth/me`, { withCredentials: true });
         if (response.data.user) {
           setIsAuthenticated(true);
           setUser(response.data.user);
@@ -38,19 +40,37 @@ function App() {
   }, []);
 
   const handleLogin = (userData) => {
+    console.log('Setting user data after login:', userData);
     setIsAuthenticated(true);
     setUser(userData);
   };
 
   const handleLogout = async () => {
     try {
-      await axios.post('/api/auth/logout', {}, { withCredentials: true });
+      await axios.post(`${config.apiUrl}/api/auth/logout`, {}, { withCredentials: true });
       setIsAuthenticated(false);
       setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
+
+  // const navigate = useNavigate();  // ✅ Declare it at the top inside the component
+
+  // const handleLogout = async () => {
+  //   try {
+  //     await axios.post(`${config.apiUrl}/api/auth/logout`, {}, { withCredentials: true });
+  //   } catch (error) {
+  //     console.error('Logout error:', error);
+  //     // Even if the logout request fails, we can still clear the local session state
+  //   } finally {
+  //     // Always clear the local authentication state
+  //     setIsAuthenticated(false);
+  //     setUser(null);
+  //     navigate('/login');
+  //   }
+  // };
+
 
   if (isLoading) {
     return <div className="loading">Loading...</div>;

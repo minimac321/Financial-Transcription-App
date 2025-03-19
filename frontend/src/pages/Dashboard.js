@@ -4,6 +4,7 @@ import axios from 'axios';
 import styled from 'styled-components';
 import Layout from '../components/Layout';
 import { FaPlus, FaUser, FaCalendarAlt, FaFileAudio, FaSpinner, FaChartBar, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import config from '../config';
 
 // Styled Components
 const DashboardWrapper = styled.div`
@@ -309,11 +310,11 @@ const Dashboard = ({ user, onLogout }) => {
         setLoading(true);
         
         // Fetch clients
-        const clientsResponse = await axios.get('/api/clients', { withCredentials: true });
+        const clientsResponse = await axios.get(`${config.apiUrl}/api/clients`, { withCredentials: true });
         setClients(clientsResponse.data);
         
         // Fetch meetings
-        const meetingsResponse = await axios.get('/api/meetings', { withCredentials: true });
+        const meetingsResponse = await axios.get(`${config.apiUrl}/api/meetings`, { withCredentials: true });
         setMeetings(meetingsResponse.data);
         
         // Calculate stats

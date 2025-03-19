@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import styled from 'styled-components';
 import { FaFileAlt } from 'react-icons/fa';
+import config from '../config';
+
 
 const LoginContainer = styled.div`
   display: flex;
@@ -166,13 +168,18 @@ const LoginPage = ({ onLogin }) => {
     setLoading(true);
     
     try {
-      const response = await axios.post('/api/auth/login', credentials, {
+      const response = await axios.post(`${config.apiUrl}/api/auth/login`, credentials, {
         withCredentials: true
       });
-      
-      onLogin(response.data.user);
-      navigate('/');
+      console.log('Login response:', response.data);
+      if (response.data.user) {
+        onLogin(response.data.user);
+        navigate('/');
+      } else {
+        setError('Login failed: No user data returned');
+      }
     } catch (error) {
+      console.error('Login error:', error);
       setError(
         error.response?.data?.message || 
         'Login failed. Please check your credentials.'
@@ -181,7 +188,7 @@ const LoginPage = ({ onLogin }) => {
       setLoading(false);
     }
   };
-  
+
   return (
     <LoginContainer>
       <LoginFormContainer>

@@ -4,6 +4,7 @@ import axios from 'axios';
 import styled from 'styled-components';
 import Layout from '../components/Layout';
 import { FaEdit, FaTrash, FaPlus, FaSpinner, FaCalendarAlt, FaArrowLeft, FaFileAudio } from 'react-icons/fa';
+import config from '../config';
 
 const ClientDetailContainer = styled.div`
   display: flex;
@@ -346,7 +347,8 @@ const ClientDetail = ({ user, onLogout }) => {
         setLoading(true);
         
         // Fetch client details
-        const clientResponse = await axios.get(`/api/clients/${id}`, { withCredentials: true });
+        // const clientResponse = await axios.get(`/api/clients/${id}`, { withCredentials: true });
+        const clientResponse = await axios.get(`${config.apiUrl}/api/clients/${id}`, { withCredentials: true });
         setClient(clientResponse.data);
         setEditedClient({
           name: clientResponse.data.name,
@@ -357,7 +359,7 @@ const ClientDetail = ({ user, onLogout }) => {
         });
         
         // Fetch client meetings
-        const meetingsResponse = await axios.get(`/api/meetings/client/${id}`, { withCredentials: true });
+        const meetingsResponse = await axios.get(`${config.apiUrl}/api/meetings/client/${id}`, { withCredentials: true });
         setMeetings(meetingsResponse.data);
       } catch (error) {
         console.error('Error fetching client data:', error);
@@ -386,8 +388,7 @@ const ClientDetail = ({ user, onLogout }) => {
     setSubmitting(true);
     
     try {
-      const response = await axios.put(`/api/clients/${id}`, editedClient, { withCredentials: true });
-      
+      const response = await axios.put(`${config.apiUrl}/api/clients/${id}`, editedClient, { withCredentials: true });
       // Update client in state
       setClient(response.data);
       
@@ -406,7 +407,7 @@ const ClientDetail = ({ user, onLogout }) => {
     }
     
     try {
-      await axios.delete(`/api/clients/${id}`, { withCredentials: true });
+      await axios.delete(`${config.apiUrl}/api/clients/${id}`, { withCredentials: true });
       navigate('/');
     } catch (error) {
       console.error('Error deleting client:', error);

@@ -1,6 +1,6 @@
-CREATE DATABASE finance_transcription;
+CREATE DATABASE finance_transcription_db;
 
-\c finance_transcription;
+\c finance_transcription_db;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,

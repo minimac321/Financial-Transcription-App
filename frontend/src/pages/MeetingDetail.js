@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import Layout from '../components/Layout';
 import EditableFacts from '../components/EditableFacts';
 import { FaEdit, FaTrash, FaSpinner, FaArrowLeft, FaFileAudio, FaCalendarAlt, FaUser, FaExclamationTriangle, FaCheck, FaSyncAlt } from 'react-icons/fa';
+import config from '../config';
 
 const MeetingDetailContainer = styled.div`
   display: flex;
@@ -399,7 +400,7 @@ const MeetingDetail = ({ user, onLogout }) => {
         setLoading(true);
         
         // Fetch meeting details
-        const meetingResponse = await axios.get(`/api/meetings/${id}`, { withCredentials: true });
+        const meetingResponse = await axios.get(`${config.apiUrl}/api/meetings/${id}`, { withCredentials: true });
         setMeeting(meetingResponse.data);
         setEditedMeeting({
           client_id: meetingResponse.data.client_id,
@@ -409,7 +410,7 @@ const MeetingDetail = ({ user, onLogout }) => {
         });
         
         // Fetch clients for edit form
-        const clientsResponse = await axios.get('/api/clients', { withCredentials: true });
+        const clientsResponse = await axios.get(`${config.apiUrl}/api/clients`, { withCredentials: true });
         setClients(clientsResponse.data);
       } catch (error) {
         console.error('Error fetching meeting data:', error);
@@ -431,7 +432,7 @@ const MeetingDetail = ({ user, onLogout }) => {
     if (meeting && meeting.status === 'processing') {
       intervalId = setInterval(async () => {
         try {
-          const response = await axios.get(`/api/meetings/${id}`, { withCredentials: true });
+          const response = await axios.get(`${config.apiUrl}/api/meetings/${id}`, { withCredentials: true });
           setMeeting(response.data);
           
           if (response.data.status !== 'processing') {
@@ -478,7 +479,7 @@ const MeetingDetail = ({ user, onLogout }) => {
       const formData = new FormData();
       formData.append('audio_file', selectedFile);
       
-      const response = await axios.post(`/api/meetings/${id}/upload`, formData, {
+      const response = await axios.post(`${config.apiUrl}/api/meetings/${id}/upload`, formData, {
         withCredentials: true,
         headers: {
           'Content-Type': 'multipart/form-data'
@@ -501,7 +502,7 @@ const MeetingDetail = ({ user, onLogout }) => {
     setSubmitting(true);
     
     try {
-      const response = await axios.put(`/api/meetings/${id}`, editedMeeting, { withCredentials: true });
+      const response = await axios.put(`${config.apiUrl}/api/meetings/${id}`, editedMeeting, { withCredentials: true });
       
       // Update meeting in state
       setMeeting(prev => ({
@@ -522,7 +523,7 @@ const MeetingDetail = ({ user, onLogout }) => {
     setRefreshing(true);
     
     try {
-      const response = await axios.get(`/api/meetings/${id}`, { withCredentials: true });
+      const response = await axios.get(`${config.apiUrl}/api/meetings/${id}`, { withCredentials: true });
       setMeeting(response.data);
     } catch (error) {
       console.error('Error refreshing meeting:', error);
@@ -537,7 +538,7 @@ const MeetingDetail = ({ user, onLogout }) => {
     }
     
     try {
-      await axios.delete(`/api/meetings/${id}`, { withCredentials: true });
+      await axios.delete(`${config.apiUrl}/api/meetings/${id}`, { withCredentials: true });
       navigate(`/clients/${meeting.client_id}`);
     } catch (error) {
       console.error('Error deleting meeting:', error);
@@ -550,7 +551,9 @@ const MeetingDetail = ({ user, onLogout }) => {
     
     try {
       // Fetch client data
-      const clientResponse = await axios.get(`/api/clients/${meeting.client_id}`, { 
+      axios.get(`${config.apiUrl}/api/clients`)
+      // const clientResponse = await axios.get(`/api/clients/${meeting.client_id}`, { 
+      const clientResponse = await axios.get(`${config.apiUrl}/api/clients/${meeting.client_id}`, { 
         withCredentials: true 
       });
       
@@ -579,7 +582,7 @@ const MeetingDetail = ({ user, onLogout }) => {
       console.log('Sending email generation request with data:', emailData);
       
       // Generate email using OpenAI
-      const response = await axios.post('/api/transcripts/generate-email', emailData, { 
+      const response = await axios.post(`${config.apiUrl}/api/transcripts/generate-email`, emailData, { 
         withCredentials: true,
         timeout: 30000 // Increase timeout for OpenAI calls
       });
@@ -795,7 +798,7 @@ const MeetingDetail = ({ user, onLogout }) => {
                         
                         // Update in the database
                         if (meeting.transcript.id) {
-                          axios.put(`/api/transcripts/${meeting.transcript.id}`, {
+                          axios.put(`${config.apiUrl}/api/transcripts/${meeting.transcript.id}`, {
                             ...meeting.transcript,
                             hard_facts: updatedFacts
                           }, { withCredentials: true }).catch(err => {
@@ -825,7 +828,7 @@ const MeetingDetail = ({ user, onLogout }) => {
                         
                         // Update in the database
                         if (meeting.transcript.id) {
-                          axios.put(`/api/transcripts/${meeting.transcript.id}`, {
+                          axios.put(`${config.apiUrl}/api/transcripts/${meeting.transcript.id}`, {
                             ...meeting.transcript,
                             soft_facts: updatedFacts
                           }, { withCredentials: true }).catch(err => {

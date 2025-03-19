@@ -4,6 +4,7 @@ import axios from 'axios';
 import styled from 'styled-components';
 import Layout from '../components/Layout';
 import { FaPlus, FaSpinner, FaEdit, FaTrash } from 'react-icons/fa';
+import config from '../config';
 
 const PageHeader = styled.div`
   display: flex;
@@ -274,7 +275,7 @@ const ClientsPage = ({ user, onLogout }) => {
   const fetchClients = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/clients', { withCredentials: true });
+      const response = await axios.get(`${config.apiUrl}/api/clients`, { withCredentials: true });
       setClients(response.data);
     } catch (error) {
       console.error('Error fetching clients:', error);
@@ -331,14 +332,14 @@ const ClientsPage = ({ user, onLogout }) => {
     try {
       if (clientToEdit) {
         // Update existing client
-        const response = await axios.put(`/api/clients/${clientToEdit.id}`, formData, { withCredentials: true });
+        const response = await axios.put(`${config.apiUrl}/api/clients/${clientToEdit.id}`, formData, { withCredentials: true });
         
         setClients(prev => prev.map(client => 
           client.id === clientToEdit.id ? response.data : client
         ));
       } else {
         // Create new client
-        const response = await axios.post('/api/clients', formData, { withCredentials: true });
+        const response = await axios.post(`${config.apiUrl}/api/clients`, formData, { withCredentials: true });
         
         setClients(prev => [...prev, response.data]);
       }
@@ -357,7 +358,7 @@ const ClientsPage = ({ user, onLogout }) => {
     }
     
     try {
-      await axios.delete(`/api/clients/${clientId}`, { withCredentials: true });
+      await axios.delete(`${config.apiUrl}/api/clients/${clientId}`, { withCredentials: true });
       setClients(prev => prev.filter(client => client.id !== clientId));
     } catch (error) {
       console.error('Error deleting client:', error);
