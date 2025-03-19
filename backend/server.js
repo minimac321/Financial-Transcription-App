@@ -6,9 +6,32 @@ const multer = require('multer');
 const path = require('path');
 const dotenv = require('dotenv');
 const fs = require('fs');
+const { createClient } = require('redis');
+const RedisStore = require('connect-redis').default;
 
 // Load environment variables
 dotenv.config();
+
+// Initialize Redis client
+let redisClient;
+
+if (process.env.NODE_ENV === 'production') {
+  // Use the Render Redis URL in production
+  redisClient = createClient({
+    url: process.env.REDIS_URL
+  });
+} else {
+  // Use local Redis in development
+  redisClient = createClient({
+    url: 'redis://localhost:6379'
+  });
+}
+
+redisClient.on('error', (err) => {
+  console.error('Redis error:', err);
+});
+
+redisClient.connect().catch(console.error);
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -51,6 +74,24 @@ app.use(session({
   //   sameSite: 'lax' // Try 'none' if using different domains, but requires secure:true
   // }
 }));
+
+// Then in your Express app setup:
+app.use(session({
+  store: new RedisStore({
+    client: redisClient,
+    ttl: 86400 // 1 day
+  }),
+  secret: process.env.SESSION_SECRET || 'finance-transcription-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // true in production
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  }
+}));
+
 
 
 // app.use(cors({
