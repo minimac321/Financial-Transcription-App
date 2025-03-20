@@ -64,6 +64,9 @@ app.use(cors({
   exposedHeaders: ['set-cookie'] // ✅ Ensure cookies are accessible
 }));
 
+// 🔥 Ensure OPTIONS requests are handled properly
+app.options('*', cors());
+
 // Body parsers
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));

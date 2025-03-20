@@ -8,7 +8,7 @@ const bcrypt = require('bcrypt');
 router.post('/login', async (req, res) => {
   res.header('Access-Control-Allow-Origin', 'https://financial-transcription-app-fe.onrender.com');
   res.header('Access-Control-Allow-Credentials', 'true');
-  
+
   const { username, password } = req.body;
 
   try {
@@ -40,6 +40,9 @@ router.post('/login', async (req, res) => {
         });
       });
 
+      // 🔥 Send `Set-Cookie` in the response so the frontend receives the session ID
+      res.setHeader('Set-Cookie', `connect.sid=${req.sessionID}; Path=/; HttpOnly; Secure; SameSite=None`);
+      
       // // Force session save before responding
       // req.session.save(async (err) => {
       //   if (err) {
