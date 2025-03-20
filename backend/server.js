@@ -2,141 +2,97 @@ const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
 const bodyParser = require('body-parser');
-const multer = require('multer');
 const path = require('path');
 const dotenv = require('dotenv');
 const fs = require('fs');
-const { createClient } = require('redis');
+const cookieParser = require('cookie-parser');
 const RedisStore = require('connect-redis').default;
+const redis = require('redis');
 
 // Load environment variables
 dotenv.config();
 
-// Initialize Redis client
-let redisClient;
-
-if (process.env.NODE_ENV === 'production') {
-  // Use the Render Redis URL in production
-  redisClient = createClient({
-    url: process.env.REDIS_URL
-  });
-} else {
-  // Use local Redis in development
-  redisClient = createClient({
-    url: 'redis://localhost:6379'
-  });
-}
-
-redisClient.on('error', (err) => {
-  console.error('Redis error:', err);
-});
-
-redisClient.connect().catch(console.error);
-
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+console.log('🚀 Running in NODE_ENV:', process.env.NODE_ENV);
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-// app.use(session({
-//   secret: process.env.SESSION_SECRET,
-//   resave: false,
-//   saveUninitialized: false,
-//   cookie: {
-//     maxAge: 24 * 60 * 60 * 1000 // 24 hours
-//   }
-// }));
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'finance-transcription-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true,
-    secure: false, // IMPORTANT: Change to false for localhost development
-    sameSite: 'lax'
-  }
+// 🔹 Configure Redis Client (Production & Local)
+const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379'; // Default to local Redis if no env var
 
-  // secret: process.env.SESSION_SECRET || 'finance-transcription-secret',
-  // resave: false,
-  // saveUninitialized: false,
-  // cookie: { 
-  //   maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  //   httpOnly: true,
-  //   secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS
-  //   sameSite: 'lax' // Try 'none' if using different domains, but requires secure:true
-  // }
-}));
-
-// Then in your Express app setup:
-app.use(session({
-  store: new RedisStore({
-    client: redisClient,
-    ttl: 86400 // 1 day
-  }),
-  secret: process.env.SESSION_SECRET || 'finance-transcription-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production', // true in production
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-  }
-}));
+const redisClient = redis.createClient({
+  url: REDIS_URL.includes('rediss://') ? REDIS_URL : REDIS_URL.replace('rediss://', 'redis://'), // Ensure correct URL format
+  socket: process.env.NODE_ENV === 'production' ? { tls: true } : {} // Enable TLS in production
+});
+redisClient.on('error', err => console.error('🔥 Redis Connection Error:', err));
+redisClient.connect().catch(console.error);
 
 
-
-// app.use(cors({
-//   origin: 'http://localhost:3000',
-//   credentials: true
-// }));
-// To this:
+// CORS configuration - must come BEFORE session middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? 'https://financial-transcription-app-fe.onrender.com' 
+    ? process.env.FRONTEND_URL 
     : 'http://localhost:3000',
-  credentials: true,  // This is essential
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-
+// Body parsers
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Session configuration - MIDDLEWARE
+app.use(session({
+  store: new RedisStore({ client: redisClient }),
+  secret: process.env.SESSION_SECRET || 'finance-transcription-secret',
+  resave: false,
+  saveUninitialized: false,
+  name: 'financeAppSession', // Cookie name
+  cookie: { 
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    httpOnly: true, // Prevent XSS attacks
+    secure: process.env.NODE_ENV === 'production', // Enable only on HTTPS
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  }
+}));
+
+// Move cookieParser AFTER session middleware
+app.use(cookieParser());
 
 
-// app.use(session({
-//   secret: process.env.SESSION_SECRET,
-//   resave: false,
-//   saveUninitialized: false,
-//   cookie: {
-//     secure: process.env.NODE_ENV === 'production', // Only use secure cookies in production
-//     sameSite: 'none', // May be needed for cross-site cookies
-//     maxAge: 24 * 60 * 60 * 1000 // 24 hours
-//   }
-// }));
-
-
-// CSV-based authentication (temporary)
+// Debug middleware
 app.use((req, res, next) => {
-  console.log('------------------------------');
-  console.log('Request path:', req.path);
-  console.log('Request cookies:', req.headers.cookie);
+  console.log('--- SESSION DEBUG ---');
+  console.log('Incoming Request Path:', req.path);
+  console.log('Incoming Cookies:', req.headers.cookie);
   console.log('Session ID:', req.sessionID);
-  console.log('Session data:', req.session);
-  
-  // Skip auth middleware for auth routes
-  if (req.path.startsWith('/api/auth/')) {
-    console.log('Skipping auth check for auth route');
+  console.log('Session Data:', req.session);
+  next();
+});
+
+// ✅ Ensure session is saved before sending response
+app.use((req, res, next) => {
+  if (req.session) {
+    req.session.save(err => {
+      if (err) {
+        console.error('Error saving session:', err);
+      }
+      next();
+    });
+  } else {
+    next();
+  }
+});
+
+
+// Auth middleware
+app.use((req, res, next) => {
+  // Skip auth middleware for auth routes and OPTIONS requests
+  if (req.path.startsWith('/api/auth/') || req.method === 'OPTIONS') {
+    console.log('Skipping auth check for route:', req.path);
     return next();
   }
   
@@ -148,14 +104,13 @@ app.use((req, res, next) => {
   
   console.log('User is authenticated:', req.session.user);
   next();
-  console.log('------------------------------');
 });
 
-// Routes (make sure all are properly registered)
+// Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/clients', require('./routes/clients'));
 app.use('/api/meetings', require('./routes/meetings'));
-app.use('/api/transcripts', require('./routes/transcripts')); // This line is crucial
+app.use('/api/transcripts', require('./routes/transcripts'));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

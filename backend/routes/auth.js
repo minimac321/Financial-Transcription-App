@@ -1,25 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
-const path = require('path');
-const { parse } = require('csv-parse/sync');
 const db = require('../db');
+const bcrypt = require('bcrypt');
 
-// CSV-based authentication (for development)
+// Login Route
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  
+
   try {
     console.log('Login attempt for:', username);
     
     // Find user in database
-    const result = await db.query(
-      'SELECT * FROM users WHERE username = $1',
-      [username]
-    );
-    
+    const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
     const user = result.rows[0];
-    
+    console.log(`Found user in DB: ${user}`);
+
+    // // Compare hashed password
+    // const isMatch = await bcrypt.compare(password, user.password);
+    // if (!isMatch) {
+    //   return res.status(401).json({ message: 'Invalid credentials' });
+    // }
+      
     if (user && user.password === password) {
       // Set user in session
       req.session.user = {
@@ -36,6 +41,9 @@ router.post('/login', async (req, res) => {
         
         console.log('User set in session:', req.session.user);
         console.log('Complete session after login:', req.session);
+
+        // Force Session Save & Send Cookies in Response 
+        res.setHeader('Set-Cookie', `connect.sid=${req.session.id}; Path=/; HttpOnly; Secure; SameSite=None`);
         
         return res.status(200).json({ 
           message: 'Login successful', 
@@ -51,29 +59,50 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Logout Route
 router.post('/logout', (req, res) => {
-  // Destroy the session even if user wasn't authenticated
   if (req.session) {
     req.session.destroy(err => {
       if (err) {
         return res.status(500).json({ message: 'Error logging out' });
       }
-      res.clearCookie('connect.sid'); // Clear the session cookie
+      res.clearCookie('financeAppSession');
       res.status(200).json({ message: 'Logged out successfully' });
     });
   } else {
-    // Session already gone, just return success
-    res.status(200).json({ message: 'Logged out successfully' });
+    res.status(200).json({ message: 'No active session' });
   }
 });
 
-
-
+// Check Authenticated User
 router.get('/me', (req, res) => {
+  console.log('Checking current session:', req.session);
+  console.log('Session ID:', req.sessionID);
+  console.log('Session user:', req.session.user);
+
   if (req.session.user) {
     return res.status(200).json({ user: req.session.user });
   }
   res.status(401).json({ message: 'Not authenticated' });
 });
+
+
+// router.post("/register", async (req, res) => {
+//   const { username, password } = req.body;
+
+//   try {
+//       // Hash the password
+//       const hashedPassword = await bcrypt.hash(password, 10);
+
+//       // Insert user into the database
+//       await db.query("INSERT INTO users (username, password) VALUES ($1, $2)", 
+//                      [username, hashedPassword]);
+
+//       res.status(201).json({ message: "User created successfully" });
+//   } catch (error) {
+//       console.error("Registration error:", error);
+//       res.status(500).json({ message: "Error creating user" });
+//   }
+// });
 
 module.exports = router;

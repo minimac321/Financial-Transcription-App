@@ -1,6 +1,6 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate} from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import axios from 'axios';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import ClientsPage from './pages/ClientsPage';
@@ -9,10 +9,11 @@ import ClientDetail from './pages/ClientDetail';
 import MeetingDetail from './pages/MeetingDetail';
 import SettingsPage from './pages/SettingsPage';
 import NotFound from './pages/NotFound';
-import axios from 'axios';
 import './App.css';
 import config from './config';
 
+// Set axios defaults
+axios.defaults.withCredentials = true;
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,7 +21,6 @@ function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Check if user is authenticated
     const checkAuth = async () => {
       try {
         const response = await axios.get(`${config.apiUrl}/api/auth/me`, { withCredentials: true });
@@ -39,12 +39,14 @@ function App() {
     checkAuth();
   }, []);
 
+  // Handle login success
   const handleLogin = (userData) => {
     console.log('Setting user data after login:', userData);
     setIsAuthenticated(true);
     setUser(userData);
   };
 
+  // Handle logout
   const handleLogout = async () => {
     try {
       await axios.post(`${config.apiUrl}/api/auth/logout`, {}, { withCredentials: true });
@@ -52,26 +54,13 @@ function App() {
       setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
+    } finally {
+      setIsAuthenticated(false);
+      setUser(null);
     }
   };
 
-  // const navigate = useNavigate();  // ✅ Declare it at the top inside the component
-
-  // const handleLogout = async () => {
-  //   try {
-  //     await axios.post(`${config.apiUrl}/api/auth/logout`, {}, { withCredentials: true });
-  //   } catch (error) {
-  //     console.error('Logout error:', error);
-  //     // Even if the logout request fails, we can still clear the local session state
-  //   } finally {
-  //     // Always clear the local authentication state
-  //     setIsAuthenticated(false);
-  //     setUser(null);
-  //     navigate('/login');
-  //   }
-  // };
-
-
+  // Show loading screen before auth check completes
   if (isLoading) {
     return <div className="loading">Loading...</div>;
   }

@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const authMiddleware = require('../middleware/auth'); // Import auth middleware
+
+// Apply authMiddleware to protect all client routes
+router.use(authMiddleware);
 
 // Get all clients
 router.get('/', async (req, res) => {
