@@ -24,14 +24,33 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379'; // Default 
 
 const redisClient = redis.createClient({
   url: REDIS_URL.includes('rediss://') ? REDIS_URL : REDIS_URL.replace('rediss://', 'redis://'), // Ensure correct URL format
-  socket: process.env.NODE_ENV === 'production' ? { tls: true } : {} // Enable TLS in production
+  socket: {
+    reconnectStrategy: (retries) => {
+      console.warn(`🛠️ Redis reconnect attempt #${retries}`);
+      if (retries > 10) {
+        console.error('❌ Too many Redis reconnection attempts, giving up.');
+        return new Error('Redis reconnect failed');
+      }
+      return Math.min(retries * 100, 3000); // Retry every 100ms, max 3s
+    },
+    tls: REDIS_URL.startsWith('rediss://') ? {} : undefined, // Enable TLS only for `rediss://`
+  }
 });
-redisClient.on('error', err => console.error('🔥 Redis Connection Error:', err));
-// Clear Redis Sessions on Startup
-redisClient.connect().then(async () => {
-  console.log('✅ Connected to Redis');
 
-}).catch(console.error);
+// 🔥 Handle Redis Connection Events
+redisClient.on('connect', () => console.log('✅ Connected to Redis'));
+redisClient.on('error', (err) => console.error('🔥 Redis Error:', err));
+redisClient.on('reconnecting', () => console.warn('🔄 Redis reconnecting...'));
+redisClient.on('end', () => console.warn('⚠️ Redis connection closed!'));
+
+(async () => {
+  try {
+    await redisClient.connect();
+    console.log('✅ Redis connection established');
+  } catch (err) {
+    console.error('❌ Redis failed to connect:', err);
+  }
+})();
 
 
 // CORS configuration - must come BEFORE session middleware
