@@ -6,6 +6,9 @@ const bcrypt = require('bcrypt');
 
 // Login Route
 router.post('/login', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', 'https://financial-transcription-app-fe.onrender.com');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   const { username, password } = req.body;
 
   try {
