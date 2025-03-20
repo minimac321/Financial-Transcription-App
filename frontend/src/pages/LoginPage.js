@@ -168,18 +168,31 @@ const LoginPage = ({ onLogin }) => {
     setLoading(true);
     
     try {
+      console.log("🔍 Attempting login...");
+      console.log("📡 Request URL:", `${config.apiUrl}/api/auth/login`);
+      console.log("📨 Request Body:", credentials);
+
       const response = await axios.post(`${config.apiUrl}/api/auth/login`, credentials, {
-        withCredentials: true
+        withCredentials: true,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
-      console.log('Login response:', response.data);
+      console.log("✅ Login response:", response);
+      console.log("📄 Headers received:", response.headers);
+      console.log("🍪 Set-Cookie Header:", response.headers['set-cookie']);
+
       if (response.data.user) {
+        console.log("✅ User authenticated:", response.data.user);
         onLogin(response.data.user);
         navigate('/');
       } else {
+        console.warn("⚠️ Login failed: No user data returned.");
         setError('Login failed: No user data returned');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("❌ Login error:", error);
       setError(
         error.response?.data?.message || 
         'Login failed. Please check your credentials.'

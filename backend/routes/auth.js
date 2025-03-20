@@ -21,7 +21,7 @@ router.post('/login', async (req, res) => {
     }
 
     const user = result.rows[0];
-    console.log(`Found user in DB: ${user}`);
+    console.log(`Found user in DB: ${user.username}`);
       
     if (user && user.password === password) {
       // Set user in session

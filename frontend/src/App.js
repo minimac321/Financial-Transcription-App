@@ -23,12 +23,18 @@ function App() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log("🔍 Checking authentication...");
+
         const response = await axios.get(`${config.apiUrl}/api/auth/me`, { withCredentials: true });
+        console.log("✅ Auth check response:", response.data);
+
         if (response.data.user) {
           setIsAuthenticated(true);
           setUser(response.data.user);
         }
       } catch (error) {
+        console.error("❌ Authentication check failed:", error);
+
         setIsAuthenticated(false);
         setUser(null);
       } finally {
@@ -49,11 +55,14 @@ function App() {
   // Handle logout
   const handleLogout = async () => {
     try {
+      console.log("🚪 Logging out...");
+
       await axios.post(`${config.apiUrl}/api/auth/logout`, {}, { withCredentials: true });
       setIsAuthenticated(false);
       setUser(null);
+      console.log("✅ Logout successful");
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("❌ Logout failed:", error);
     } finally {
       setIsAuthenticated(false);
       setUser(null);
