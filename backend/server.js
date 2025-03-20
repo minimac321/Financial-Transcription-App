@@ -89,21 +89,46 @@ app.use((req, res, next) => {
 
 
 // Auth middleware
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
+  console.log('🔍 Incoming Request Path:', req.path);
+  console.log('🔍 Incoming Cookies:', req.headers.cookie);
+  console.log('🔍 Extracted Session ID:', req.sessionID);
+  console.log('🔍 Full Session Data (Before Redis Check):', req.session);
+
+
   // Skip auth middleware for auth routes and OPTIONS requests
   if (req.path.startsWith('/api/auth/') || req.method === 'OPTIONS') {
     console.log('Skipping auth check for route:', req.path);
     return next();
   }
-  
-  // Check if user is authenticated
-  if (!req.session.user) {
-    console.log('No user in session, returning 401');
-    return res.status(401).json({ message: 'Unauthorized' });
+
+  // 🔥 Retrieve session data manually from Redis
+  if (req.session && req.session.user) {
+    console.log('✅ User is authenticated:', req.session.user);
+    return next();
+  } else {
+    console.log('❌ No user found in session, attempting Redis lookup');
+
+    // Manually look up session from Redis
+    const redisSession = await redisClient.get(`sess:${req.sessionID}`);
+    console.log('🔍 Retrieved Redis Session:', redisSession);
+
+    if (redisSession) {
+      // req.session.user = JSON.parse(redisSession).user; // Restore user data
+      const sessionData = JSON.parse(redisSession);
+      console.log('🔍 Parsed Redis Session:', sessionData);
+
+      if (sessionData.user) {
+        req.session.user = sessionData.user; // 🔥 Restore user manually
+        console.log('✅ Redis Session Restored, User:', req.session.user);
+        return next();
+      }
+
+    }
   }
-  
-  console.log('User is authenticated:', req.session.user);
-  next();
+
+  console.log('❌ Still no valid session, returning 401');
+  return res.status(401).json({ message: 'Unauthorized' });
 });
 
 // Routes

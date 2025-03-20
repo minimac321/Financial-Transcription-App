@@ -2,6 +2,19 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const bcrypt = require('bcrypt');
+const RedisStore = require('connect-redis').default;
+const redis = require('redis');
+
+// 🔹 Configure Redis Client (Production & Local)
+const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379'; // Default to local Redis if no env var
+
+const redisClient = redis.createClient({
+  url: REDIS_URL.includes('rediss://') ? REDIS_URL : REDIS_URL.replace('rediss://', 'redis://'), // Ensure correct URL format
+  socket: process.env.NODE_ENV === 'production' ? { tls: true } : {} // Enable TLS in production
+});
+redisClient.on('error', err => console.error('🔥 Redis Connection Error:', err));
+redisClient.connect().catch(console.error);
+
 
 // Login Route
 router.post('/login', async (req, res) => {
@@ -18,12 +31,6 @@ router.post('/login', async (req, res) => {
 
     const user = result.rows[0];
     console.log(`Found user in DB: ${user}`);
-
-    // // Compare hashed password
-    // const isMatch = await bcrypt.compare(password, user.password);
-    // if (!isMatch) {
-    //   return res.status(401).json({ message: 'Invalid credentials' });
-    // }
       
     if (user && user.password === password) {
       // Set user in session
@@ -31,24 +38,36 @@ router.post('/login', async (req, res) => {
         id: user.id,
         username: user.username,
       };
-      
-      // Force session save before responding
-      req.session.save(err => {
-        if (err) {
-          console.error('Error saving session:', err);
-          return res.status(500).json({ message: 'Error during login' });
-        }
-        
-        console.log('User set in session:', req.session.user);
-        console.log('Complete session after login:', req.session);
+      console.log('✅ User set in session:', req.session.user);
 
-        // Force Session Save & Send Cookies in Response 
-        res.setHeader('Set-Cookie', `connect.sid=${req.session.id}; Path=/; HttpOnly; Secure; SameSite=None`);
-        
-        return res.status(200).json({ 
-          message: 'Login successful', 
-          user: { id: user.id, username: user.username } 
+      // 🔥 **Manually trigger session persistence BEFORE responding**
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error('🔥 Error saving session:', err);
+            reject(res.status(500).json({ message: 'Session save failed' }));
+          } else {
+            resolve();
+          }
         });
+      });
+
+      // // Force session save before responding
+      // req.session.save(async (err) => {
+      //   if (err) {
+      //     console.error('Error saving session:', err);
+      //     return res.status(500).json({ message: 'Session save failed' });
+      //   }
+      // 🔍 Verify Redis now contains user
+      const storedSession = await redisClient.get(`sess:${req.sessionID}`);
+      console.log('🔍 Stored Redis Session After Save:', storedSession);
+
+      // Force Session Save & Send Cookies in Response 
+      // res.setHeader('Set-Cookie', `connect.sid=${req.session.id}; Path=/; HttpOnly; Secure; SameSite=None`);
+      
+      return res.status(200).json({ 
+        message: 'Login successful', 
+        user: { id: user.id, username: user.username } 
       });
     } else {
       return res.status(401).json({ message: 'Invalid credentials' });
