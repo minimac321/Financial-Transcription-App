@@ -27,7 +27,11 @@ const redisClient = redis.createClient({
   socket: process.env.NODE_ENV === 'production' ? { tls: true } : {} // Enable TLS in production
 });
 redisClient.on('error', err => console.error('🔥 Redis Connection Error:', err));
-redisClient.connect().catch(console.error);
+// Clear Redis Sessions on Startup
+redisClient.connect().then(async () => {
+  console.log('✅ Connected to Redis');
+
+}).catch(console.error);
 
 
 // CORS configuration - must come BEFORE session middleware
@@ -47,9 +51,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Session configuration - MIDDLEWARE
 app.use(session({
   store: new RedisStore({ client: redisClient }),
-  secret: process.env.SESSION_SECRET || 'finance-transcription-secret',
+  secret: process.env.SESSION_SECRET,
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: false,  // ✅ Do not create session unless user logs in!
   name: 'financeAppSession', // Cookie name
   cookie: { 
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -63,37 +67,13 @@ app.use(session({
 app.use(cookieParser());
 
 
-// Debug middleware
-app.use((req, res, next) => {
+// Auth middleware
+app.use(async (req, res, next) => {
   console.log('--- SESSION DEBUG ---');
   console.log('Incoming Request Path:', req.path);
   console.log('Incoming Cookies:', req.headers.cookie);
   console.log('Session ID:', req.sessionID);
   console.log('Session Data:', req.session);
-  next();
-});
-
-// ✅ Ensure session is saved before sending response
-app.use((req, res, next) => {
-  if (req.session) {
-    req.session.save(err => {
-      if (err) {
-        console.error('Error saving session:', err);
-      }
-      next();
-    });
-  } else {
-    next();
-  }
-});
-
-
-// Auth middleware
-app.use(async (req, res, next) => {
-  console.log('🔍 Incoming Request Path:', req.path);
-  console.log('🔍 Incoming Cookies:', req.headers.cookie);
-  console.log('🔍 Extracted Session ID:', req.sessionID);
-  console.log('🔍 Full Session Data (Before Redis Check):', req.session);
 
 
   // Skip auth middleware for auth routes and OPTIONS requests
@@ -113,18 +93,17 @@ app.use(async (req, res, next) => {
     const redisSession = await redisClient.get(`sess:${req.sessionID}`);
     console.log('🔍 Retrieved Redis Session:', redisSession);
 
-    if (redisSession) {
-      // req.session.user = JSON.parse(redisSession).user; // Restore user data
-      const sessionData = JSON.parse(redisSession);
-      console.log('🔍 Parsed Redis Session:', sessionData);
+    // if (redisSession) {
+    //   const sessionData = JSON.parse(redisSession);
+    //   console.log('🔍 Parsed Redis Session:', sessionData);
 
-      if (sessionData.user) {
-        req.session.user = sessionData.user; // 🔥 Restore user manually
-        console.log('✅ Redis Session Restored, User:', req.session.user);
-        return next();
-      }
+    //   if (sessionData.user) {
+    //     req.session.user = sessionData.user; // 🔥 Restore user manually
+    //     console.log('✅ Redis Session Restored, User:', req.session.user);
+    //     return next();
+    //   }
 
-    }
+    // }
   }
 
   console.log('❌ Still no valid session, returning 401');

@@ -2,18 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const bcrypt = require('bcrypt');
-const RedisStore = require('connect-redis').default;
-const redis = require('redis');
-
-// 🔹 Configure Redis Client (Production & Local)
-const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379'; // Default to local Redis if no env var
-
-const redisClient = redis.createClient({
-  url: REDIS_URL.includes('rediss://') ? REDIS_URL : REDIS_URL.replace('rediss://', 'redis://'), // Ensure correct URL format
-  socket: process.env.NODE_ENV === 'production' ? { tls: true } : {} // Enable TLS in production
-});
-redisClient.on('error', err => console.error('🔥 Redis Connection Error:', err));
-redisClient.connect().catch(console.error);
 
 
 // Login Route
@@ -34,10 +22,7 @@ router.post('/login', async (req, res) => {
       
     if (user && user.password === password) {
       // Set user in session
-      req.session.user = {
-        id: user.id,
-        username: user.username,
-      };
+      req.session.user = {id: user.id, username: user.username};
       console.log('✅ User set in session:', req.session.user);
 
       // 🔥 **Manually trigger session persistence BEFORE responding**
@@ -59,8 +44,8 @@ router.post('/login', async (req, res) => {
       //     return res.status(500).json({ message: 'Session save failed' });
       //   }
       // 🔍 Verify Redis now contains user
-      const storedSession = await redisClient.get(`sess:${req.sessionID}`);
-      console.log('🔍 Stored Redis Session After Save:', storedSession);
+      // const storedSession = await redisClient.get(`sess:${req.sessionID}`);
+      // console.log('🔍 Stored Redis Session ID After Save:', storedSession);
 
       // Force Session Save & Send Cookies in Response 
       // res.setHeader('Set-Cookie', `connect.sid=${req.session.id}; Path=/; HttpOnly; Secure; SameSite=None`);
