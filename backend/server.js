@@ -23,8 +23,12 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  // exposedHeaders: ['set-cookie'] // ✅ Ensure cookies are accessible
+  exposedHeaders: ['set-cookie'] // ✅ Ensure cookies are accessible
 }));
+
+// 🔥 Ensure OPTIONS requests are handled properly
+app.options('*', cors());
+
 // For debugging CORS during development
 app.use((req, res, next) => {
   console.log('Request from origin:', req.headers.origin);
@@ -32,8 +36,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// 🔥 Ensure OPTIONS requests are handled properly
-// app.options('*', cors());
 
 // Body parsers
 app.use(cookieParser());
@@ -52,4 +54,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+// Add this to server.js to test CORS
+app.get('/api/cors-test', (req, res) => {
+  res.json({ message: 'CORS is working!' });
 });

@@ -27,8 +27,9 @@ router.post('/login', async (req, res) => {
       res.cookie('jwt', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-        sameSite: 'strict',
+        sameSite: 'none',
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        path: '/'
       });
 
       console.log('Generated token:', token.substring(0, 20) + '...'); // Debug log (don't log full token)
