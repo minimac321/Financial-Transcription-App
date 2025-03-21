@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { OpenAI } = require('openai');
+const authMiddleware = require('../middleware/auth'); // Import auth middleware
+
+// Apply authMiddleware to protect all client routes
+router.use(authMiddleware);
+
 
 // Initialize OpenAI
 const openai = new OpenAI({

@@ -35,7 +35,7 @@ router.get('/:id', async (req, res) => {
 // Create client
 router.post('/', async (req, res) => {
   const { name, surname, company_name, industry, email, phone, age, risk_profile } = req.body;
-  const created_by = req.session.user.id;
+  const created_by = req.user.id;
   console.log(`(POST) Created Client ${name} ${surname} ${company_name} \n${industry} ${email} ${phone} \n${age} ${risk_profile} ${created_by}`);
 
   try {

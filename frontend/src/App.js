@@ -4,16 +4,37 @@ import axios from 'axios';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import ClientsPage from './pages/ClientsPage';
-import MeetingsPage from './pages/MeetingsPage';
 import ClientDetail from './pages/ClientDetail';
+import MeetingsPage from './pages/MeetingsPage';
 import MeetingDetail from './pages/MeetingDetail';
-import SettingsPage from './pages/SettingsPage';
 import NotFound from './pages/NotFound';
+import SettingsPage from './pages/SettingsPage';
+// import other components
 import './App.css';
 import config from './config';
 
+
+// Set up axios with JWT token
+let jwtToken = sessionStorage.getItem('jwtToken');
+console.log("jwtToken:", jwtToken);
+
 // Set axios defaults
 axios.defaults.withCredentials = true;
+
+// Interceptor to add the token to every request
+axios.interceptors.request.use(
+  (config) => {
+    if (jwtToken) {
+      config.headers.Authorization = `Bearer ${jwtToken}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -24,19 +45,39 @@ function App() {
     const checkAuth = async () => {
       try {
         console.log("🔍 Checking authentication...");
+        console.log("Token in sessionStorage:", jwtToken);
+        
+        // Skip check if no token exists
+        if (!jwtToken) {
+          setIsAuthenticated(false);
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
 
-        const response = await axios.get(`${config.apiUrl}/api/auth/me`, { withCredentials: true });
+        const response = await axios.get(`${config.apiUrl}/api/auth/me`);
         console.log("✅ Auth check response:", response.data);
-
+    
         if (response.data.user) {
           setIsAuthenticated(true);
           setUser(response.data.user);
+        } else {
+          // Handle case where response succeeded but no user data
+          console.log("No user data in response");
+          setIsAuthenticated(false);
+          setUser(null);
+          sessionStorage.removeItem('jwtToken');
+          jwtToken = null;
         }
       } catch (error) {
         console.error("❌ Authentication check failed:", error);
+        console.error("Response status:", error.response?.status);
+        console.error("Response data:", error.response?.data);
 
         setIsAuthenticated(false);
         setUser(null);
+        sessionStorage.removeItem('jwtToken');
+        jwtToken = null;
       } finally {
         setIsLoading(false);
       }
@@ -46,8 +87,9 @@ function App() {
   }, []);
 
   // Handle login success
-  const handleLogin = (userData) => {
-    console.log('Setting user data after login:', userData);
+  const handleLogin = (userData, token) => {
+    jwtToken = token;
+    sessionStorage.setItem('jwtToken', token);
     setIsAuthenticated(true);
     setUser(userData);
   };
@@ -55,15 +97,10 @@ function App() {
   // Handle logout
   const handleLogout = async () => {
     try {
-      console.log("🚪 Logging out...");
-
-      await axios.post(`${config.apiUrl}/api/auth/logout`, {}, { withCredentials: true });
-      setIsAuthenticated(false);
-      setUser(null);
-      console.log("✅ Logout successful");
-    } catch (error) {
-      console.error("❌ Logout failed:", error);
+      await axios.post(`${config.apiUrl}/api/auth/logout`);
     } finally {
+      sessionStorage.removeItem('jwtToken');
+      jwtToken = null;
       setIsAuthenticated(false);
       setUser(null);
     }

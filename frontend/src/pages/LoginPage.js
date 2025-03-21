@@ -172,27 +172,23 @@ const LoginPage = ({ onLogin }) => {
       console.log("📡 Request URL:", `${config.apiUrl}/api/auth/login`);
       console.log("📨 Request Body:", credentials);
 
-      const response = await axios.post(`${config.apiUrl}/api/auth/login`, credentials, {
-        withCredentials: true,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await axios.post(`${config.apiUrl}/api/auth/login`, credentials);
       console.log("✅ Login response:", response);
-      console.log("📄 Headers received:", response.headers);
-      console.log("🍪 Set-Cookie Header:", response.headers['set-cookie']);
+      console.log("User data:", response.data.user);
+      console.log("User token:", response.data.token);
 
-      if (response.data.user) {
+      if (response.data.user && response.data.token) {
         console.log("✅ User authenticated:", response.data.user);
-        onLogin(response.data.user);
+        // Pass both user data and token to the parent component
+        onLogin(response.data.user, response.data.token);
         navigate('/');
       } else {
-        console.warn("⚠️ Login failed: No user data returned.");
-        setError('Login failed: No user data returned');
+        console.warn("⚠️ Login failed: No user data or token returned.");
+        setError('Login failed: No user data or token returned');
       }
     } catch (error) {
       console.error("❌ Login error:", error);
+
       setError(
         error.response?.data?.message || 
         'Login failed. Please check your credentials.'

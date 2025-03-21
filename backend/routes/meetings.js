@@ -5,7 +5,10 @@ const path = require('path');
 const fs = require('fs');
 const { OpenAI } = require('openai');
 const db = require('../db');
+const authMiddleware = require('../middleware/auth'); // Import auth middleware
 
+// Apply authMiddleware to protect all client routes
+router.use(authMiddleware);
 
 // Define uploadsDir based on environment
 const uploadsDir = process.env.NODE_ENV === 'production'
@@ -126,7 +129,7 @@ router.get('/:id', async (req, res) => {
 // Create meeting
 router.post('/', upload.single('audio_file'), async (req, res) => {
   const { client_id, title, meeting_date, participants } = req.body;
-  const created_by = req.session.user.id;
+  const created_by = req.user.id;
   
   try {
     // Start transaction
