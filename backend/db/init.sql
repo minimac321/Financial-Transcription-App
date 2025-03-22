@@ -21,6 +21,7 @@ CREATE TABLE clients (
   phone VARCHAR(20),
   age INTEGER,
   risk_profile VARCHAR(10),
+  currency VARCHAR(3) DEFAULT 'USD'
   created_by INTEGER REFERENCES users(id),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -43,5 +44,21 @@ CREATE TABLE transcripts (
   full_text TEXT,
   hard_facts JSONB,
   soft_facts JSONB,
+  summary TEXT,
+  email_content TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  transcription_service VARCHAR(50) DEFAULT 'openai',
+  transcription_api_key TEXT,
+  llm_service VARCHAR(50) DEFAULT 'openai',
+  llm_api_key TEXT,
+  dark_mode BOOLEAN DEFAULT false,
+  notifications BOOLEAN DEFAULT true,
+  auto_refresh BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
