@@ -16,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // CORS configuration
-app.use(cors({
+const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? process.env.FRONTEND_URL 
     : 'http://localhost:3000',
@@ -24,13 +24,25 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['set-cookie'] // ✅ Ensure cookies are accessible
-}));
+};
 
-// 🔥 Ensure OPTIONS requests are handled properly
-app.options('*', cors());
+// Apply CORS globally
+app.use(cors(corsOptions));
+
+// Handle preflight OPTIONS requests
+app.options('*', cors(corsOptions));
 
 // For debugging CORS during development
 app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://financial-transcription-app-fe.onrender.com');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
   console.log('Request from origin:', req.headers.origin);
   console.log('Request cookies:', req.cookies);
   next();
