@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { generateToken } = require('../utils/jwt');
 const authMiddleware = require('../middleware/auth'); // Import the middleware properly
+const bcrypt = require('bcrypt'); // Add this line to import bcrypt
 
 // Login Route
 router.post('/login', async (req, res) => {
@@ -18,8 +19,11 @@ router.post('/login', async (req, res) => {
     }
     const user = result.rows[0];
     console.log(`Found user in DB: ${user.username}`);
+
+    // Compare password using bcrypt
+    const isPasswordValid = await bcrypt.compare(password, user.password);
       
-    if (user && user.password === password) {
+    if (user && isPasswordValid) {
       // Generate JWT token
       const token = generateToken(user);
 

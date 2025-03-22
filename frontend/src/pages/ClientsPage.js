@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import styled from 'styled-components';
 import Layout from '../components/Layout';
-import { FaPlus, FaSpinner, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaSpinner, FaEdit, FaTrash, FaArrowLeft, FaArrowRight, FaCheck } from 'react-icons/fa';
 import config from '../config';
 
 const PageHeader = styled.div`
@@ -71,7 +71,7 @@ const ClientName = styled(Link)`
   }
 `;
 
-const ClientIndustry = styled.div`
+const CompanyName = styled.div`
   color: #7f8c8d;
   font-size: 0.875rem;
   margin-top: 0.25rem;
@@ -166,7 +166,9 @@ const ModalContent = styled.div`
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 500px;
+  max-height: 90vh;
   padding: 2rem;
+  overflow-y: auto;
 `;
 
 const ModalTitle = styled.h2`
@@ -210,7 +212,7 @@ const ModalSelect = styled.select`
 
 const ModalButtonGroup = styled.div`
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 1rem;
   margin-top: 2rem;
 `;
@@ -248,6 +250,73 @@ const SubmitButton = styled.button`
   }
 `;
 
+const NavButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: ${props => props.primary ? '#2c3e50' : '#ecf0f1'};
+  color: ${props => props.primary ? 'white' : '#2c3e50'};
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: ${props => props.primary ? '#1a252f' : '#dde4e6'};
+  }
+  
+  &:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+  }
+`;
+
+const FormProgress = styled.div`
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+`;
+
+const ProgressStep = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100px;
+  position: relative;
+  
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 12px;
+    right: -50%;
+    width: 100%;
+    height: 2px;
+    background-color: ${props => props.active || props.completed ? '#3498db' : '#ecf0f1'};
+    z-index: 1;
+  }
+`;
+
+const StepCircle = styled.div`
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: ${props => props.active ? '#3498db' : props.completed ? '#27ae60' : '#ecf0f1'};
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  margin-bottom: 8px;
+  z-index: 2;
+`;
+
+const StepLabel = styled.div`
+  font-size: 0.75rem;
+  color: ${props => props.active ? '#3498db' : props.completed ? '#27ae60' : '#7f8c8d'};
+  text-align: center;
+`;
+
 const ErrorMessage = styled.div`
   color: #e74c3c;
   margin-top: 0.5rem;
@@ -267,8 +336,10 @@ const ClientsPage = ({ user, onLogout }) => {
     email: '',
     phone: '',
     age: '',
-    risk_profile: ''
+    risk_profile: '',
+    currency: 'USD'
   });
+  const [formPage, setFormPage] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   
@@ -292,28 +363,40 @@ const ClientsPage = ({ user, onLogout }) => {
     if (client) {
       setClientToEdit(client);
       setFormData({
-        name: client.name,
+        name: client.name || '',
+        surname: client.surname || '',
+        company_name: client.company_name || '',
         industry: client.industry || '',
         contact_person: client.contact_person || '',
         email: client.email || '',
-        phone: client.phone || ''
+        phone: client.phone || '',
+        age: client.age || '',
+        risk_profile: client.risk_profile || '',
+        currency: client.currency || 'USD'
       });
     } else {
       setClientToEdit(null);
       setFormData({
         name: '',
+        surname: '',
+        company_name: '',
         industry: '',
         contact_person: '',
         email: '',
-        phone: ''
+        phone: '',
+        age: '',
+        risk_profile: '',
+        currency: 'USD'
       });
     }
+    setFormPage(1);
     setModalOpen(true);
   };
   
   const handleCloseModal = () => {
     setModalOpen(false);
     setError('');
+    setFormPage(1);
   };
   
   const handleInputChange = (e) => {
@@ -324,29 +407,61 @@ const ClientsPage = ({ user, onLogout }) => {
     }));
   };
   
+  const handleNextPage = (e) => {
+    e.preventDefault();
+    // Validate required fields on page 1
+    if (!formData.name) {
+      setError('First name is required');
+      return;
+    }
+    setError('');
+    setFormPage(2);
+  };
+  
+  const handlePrevPage = () => {
+    setFormPage(1);
+    setError('');
+  };
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
     
     try {
+      // Create a cleaned version of the form data
+      const cleanedData = {
+        ...formData,
+        // If age is empty string, send null
+        age: formData.age === '' ? null : formData.age
+      };
+      
       if (clientToEdit) {
         // Update existing client
-        const response = await axios.put(`${config.apiUrl}/api/clients/${clientToEdit.id}`, formData, { withCredentials: true });
+        const response = await axios.put(
+          `${config.apiUrl}/api/clients/${clientToEdit.id}`, 
+          cleanedData, 
+          { withCredentials: true }
+        );
         
         setClients(prev => prev.map(client => 
           client.id === clientToEdit.id ? response.data : client
         ));
       } else {
         // Create new client
-        const response = await axios.post(`${config.apiUrl}/api/clients`, formData, { withCredentials: true });
+        const response = await axios.post(
+          `${config.apiUrl}/api/clients`, 
+          cleanedData, 
+          { withCredentials: true }
+        );
         
         setClients(prev => [...prev, response.data]);
       }
       
       handleCloseModal();
     } catch (error) {
-      setError(error.response?.data?.message || 'An error occurred');
+      console.error('Client save error:', error);
+      setError(error.response?.data?.message || 'An error occurred while saving the client');
     } finally {
       setSubmitting(false);
     }
@@ -376,6 +491,126 @@ const ClientsPage = ({ user, onLogout }) => {
     );
   }
   
+  const renderFormPage1 = () => (
+    <>
+      <ModalFormGroup>
+        <ModalLabel htmlFor="name">First Name *</ModalLabel>
+        <ModalInput
+          type="text"
+          id="name"
+          name="name"
+          value={formData.name}
+          onChange={handleInputChange}
+          required
+        />
+      </ModalFormGroup>
+      
+      <ModalFormGroup>
+        <ModalLabel htmlFor="surname">Last Name</ModalLabel>
+        <ModalInput
+          type="text"
+          id="surname"
+          name="surname"
+          value={formData.surname}
+          onChange={handleInputChange}
+        />
+      </ModalFormGroup>
+      
+      <ModalFormGroup>
+        <ModalLabel htmlFor="company_name">Company Name</ModalLabel>
+        <ModalInput
+          type="text"
+          id="company_name"
+          name="company_name"
+          value={formData.company_name}
+          onChange={handleInputChange}
+        />
+      </ModalFormGroup>
+      
+      <ModalFormGroup>
+        <ModalLabel htmlFor="email">Email</ModalLabel>
+        <ModalInput
+          type="email"
+          id="email"
+          name="email"
+          value={formData.email}
+          onChange={handleInputChange}
+        />
+      </ModalFormGroup>
+      
+      <ModalFormGroup>
+        <ModalLabel htmlFor="phone">Phone</ModalLabel>
+        <ModalInput
+          type="tel"
+          id="phone"
+          name="phone"
+          value={formData.phone}
+          onChange={handleInputChange}
+        />
+      </ModalFormGroup>
+    </>
+  );
+  
+  const renderFormPage2 = () => (
+    <>
+      <ModalFormGroup>
+        <ModalLabel htmlFor="industry">Industry</ModalLabel>
+        <ModalInput
+          type="text"
+          id="industry"
+          name="industry"
+          value={formData.industry}
+          onChange={handleInputChange}
+        />
+      </ModalFormGroup>
+      
+      <ModalFormGroup>
+        <ModalLabel htmlFor="age">Age</ModalLabel>
+        <ModalInput
+          type="number"
+          id="age"
+          name="age"
+          value={formData.age}
+          onChange={handleInputChange}
+          min="0"
+          max="120"
+        />
+      </ModalFormGroup>
+      
+      <ModalFormGroup>
+        <ModalLabel htmlFor="risk_profile">Risk Profile</ModalLabel>
+        <ModalSelect
+          id="risk_profile"
+          name="risk_profile"
+          value={formData.risk_profile}
+          onChange={handleInputChange}
+        >
+          <option value="">Select Risk Profile</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </ModalSelect>
+      </ModalFormGroup>
+      
+      <ModalFormGroup>
+        <ModalLabel htmlFor="currency">Default Currency</ModalLabel>
+        <ModalSelect
+          id="currency"
+          name="currency"
+          value={formData.currency}
+          onChange={handleInputChange}
+        >
+          <option value="USD">US Dollar (USD)</option>
+          <option value="EUR">Euro (EUR)</option>
+          <option value="GBP">British Pound (GBP)</option>
+          <option value="ZAR">South African Rand (ZAR)</option>
+          <option value="CHF">Swiss Franc (CHF)</option>
+          <option value="CNY">Chinese Yuan (CNY)</option>
+        </ModalSelect>
+      </ModalFormGroup>
+    </>
+  );
+  
   return (
     <Layout user={user} onLogout={onLogout}>
       <PageHeader>
@@ -399,18 +634,13 @@ const ClientsPage = ({ user, onLogout }) => {
           {clients.map(client => (
             <ClientCard key={client.id}>
               <ClientHeader>
-                <ClientName to={`/clients/${client.id}`}>{client.name}</ClientName>
-                {client.industry && <ClientIndustry>{client.industry}</ClientIndustry>}
+                <ClientName to={`/clients/${client.id}`}>
+                  {client.name} {client.surname}
+                </ClientName>
+                {client.company_name && <CompanyName>{client.company_name}</CompanyName>}
               </ClientHeader>
               
               <ClientDetails>
-                {client.contact_person && (
-                  <ClientDetail>
-                    <DetailLabel>Contact Person</DetailLabel>
-                    <DetailValue>{client.contact_person}</DetailValue>
-                  </ClientDetail>
-                )}
-                
                 {client.email && (
                   <ClientDetail>
                     <DetailLabel>Email</DetailLabel>
@@ -422,6 +652,13 @@ const ClientsPage = ({ user, onLogout }) => {
                   <ClientDetail>
                     <DetailLabel>Phone</DetailLabel>
                     <DetailValue>{client.phone}</DetailValue>
+                  </ClientDetail>
+                )}
+                
+                {client.currency && (
+                  <ClientDetail>
+                    <DetailLabel>Currency</DetailLabel>
+                    <DetailValue>{client.currency}</DetailValue>
                   </ClientDetail>
                 )}
               </ClientDetails>
@@ -444,111 +681,47 @@ const ClientsPage = ({ user, onLogout }) => {
         <Modal>
           <ModalContent>
             <ModalTitle>{clientToEdit ? 'Edit Client' : 'Add New Client'}</ModalTitle>
-            <ModalForm onSubmit={handleSubmit}>
-              <ModalFormGroup>
-                <ModalLabel htmlFor="name">First Name *</ModalLabel>
-                <ModalInput
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                />
-              </ModalFormGroup>
-              
-              <ModalFormGroup>
-                <ModalLabel htmlFor="surname">Last Name</ModalLabel>
-                <ModalInput
-                  type="text"
-                  id="surname"
-                  name="surname"
-                  value={formData.surname}
-                  onChange={handleInputChange}
-                />
-              </ModalFormGroup>
-              
-              <ModalFormGroup>
-                <ModalLabel htmlFor="company_name">Company Name</ModalLabel>
-                <ModalInput
-                  type="text"
-                  id="company_name"
-                  name="company_name"
-                  value={formData.company_name}
-                  onChange={handleInputChange}
-                />
-              </ModalFormGroup>
-              
-              <ModalFormGroup>
-                <ModalLabel htmlFor="industry">Industry</ModalLabel>
-                <ModalInput
-                  type="text"
-                  id="industry"
-                  name="industry"
-                  value={formData.industry}
-                  onChange={handleInputChange}
-                />
-              </ModalFormGroup>
-              
-              <ModalFormGroup>
-                <ModalLabel htmlFor="email">Email</ModalLabel>
-                <ModalInput
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                />
-              </ModalFormGroup>
-              
-              <ModalFormGroup>
-                <ModalLabel htmlFor="phone">Phone</ModalLabel>
-                <ModalInput
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                />
-              </ModalFormGroup>
-              
-              <ModalFormGroup>
-                <ModalLabel htmlFor="age">Age</ModalLabel>
-                <ModalInput
-                  type="number"
-                  id="age"
-                  name="age"
-                  value={formData.age}
-                  onChange={handleInputChange}
-                  min="0"
-                  max="120"
-                />
-              </ModalFormGroup>
-              
-              <ModalFormGroup>
-                <ModalLabel htmlFor="risk_profile">Risk Profile</ModalLabel>
-                <ModalSelect
-                  id="risk_profile"
-                  name="risk_profile"
-                  value={formData.risk_profile}
-                  onChange={handleInputChange}
-                >
-                  <option value="">Select Risk Profile</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </ModalSelect>
-              </ModalFormGroup>
+            
+            <FormProgress>
+              <ProgressStep active={formPage === 1} completed={formPage > 1}>
+                <StepCircle active={formPage === 1} completed={formPage > 1}>
+                  {formPage > 1 ? <FaCheck size={10} /> : 1}
+                </StepCircle>
+                <StepLabel active={formPage === 1} completed={formPage > 1}>Basic Info</StepLabel>
+              </ProgressStep>
+              <ProgressStep active={formPage === 2}>
+                <StepCircle active={formPage === 2}>2</StepCircle>
+                <StepLabel active={formPage === 2}>Additional Info</StepLabel>
+              </ProgressStep>
+            </FormProgress>
+            
+            <ModalForm onSubmit={formPage === 1 ? handleNextPage : handleSubmit}>
+              {formPage === 1 ? renderFormPage1() : renderFormPage2()}
               
               {error && <ErrorMessage>{error}</ErrorMessage>}
               
               <ModalButtonGroup>
-                <CancelButton type="button" onClick={handleCloseModal}>
-                  Cancel
-                </CancelButton>
-                <SubmitButton type="submit" disabled={submitting}>
-                  {submitting ? 'Saving...' : clientToEdit ? 'Save Changes' : 'Create Client'}
-                </SubmitButton>
+                {formPage === 1 ? (
+                  <>
+                    <CancelButton type="button" onClick={handleCloseModal}>
+                      Cancel
+                    </CancelButton>
+                    <NavButton type="submit" primary>
+                      Next
+                      <FaArrowRight size={12} />
+                    </NavButton>
+                  </>
+                ) : (
+                  <>
+                    <NavButton type="button" onClick={handlePrevPage}>
+                      <FaArrowLeft size={12} />
+                      Back
+                    </NavButton>
+                    <SubmitButton type="submit" disabled={submitting}>
+                      {submitting ? 'Saving...' : clientToEdit ? 'Save Changes' : 'Create Client'}
+                    </SubmitButton>
+                  </>
+                )}
               </ModalButtonGroup>
             </ModalForm>
           </ModalContent>

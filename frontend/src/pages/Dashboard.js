@@ -362,7 +362,7 @@ const Dashboard = ({ user, onLogout }) => {
       activities.push({
         id: `meeting-${meeting.id}`,
         type: activityType,
-        text: `${activityText} "${meeting.title}"`,
+        text: `${activityText} ${meeting.title}`,
         time: new Date(meeting.created_at).toLocaleString(),
         link: `/meetings/${meeting.id}`
       });
@@ -528,7 +528,6 @@ const Dashboard = ({ user, onLogout }) => {
                         <ActivityLink to={activity.link}>
                           {activity.text.split('"')[1]}
                         </ActivityLink>
-                        "
                       </ActivityText>
                       <ActivityTime>{activity.time}</ActivityTime>
                     </ActivityContent>

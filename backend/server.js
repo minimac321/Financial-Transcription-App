@@ -59,6 +59,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/clients', require('./routes/clients'));
 app.use('/api/meetings', require('./routes/meetings'));
 app.use('/api/transcripts', require('./routes/transcripts'));
+app.use('/api/settings', require('./routes/settings'));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

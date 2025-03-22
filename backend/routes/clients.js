@@ -34,20 +34,34 @@ router.get('/:id', async (req, res) => {
 
 // Create client
 router.post('/', async (req, res) => {
-  const { name, surname, company_name, industry, email, phone, age, risk_profile } = req.body;
+  const { 
+    name, 
+    surname = '', 
+    company_name = '', 
+    industry = '', 
+    email = '', 
+    phone = '', 
+    age, 
+    risk_profile = '',
+    currency = 'USD'
+  } = req.body;
+  
+  // Convert age to null if it's empty or not a valid number
+  const ageValue = age === '' || age === null || age === undefined ? null : parseInt(age, 10);
+  
   const created_by = req.user.id;
-  console.log(`(POST) Created Client ${name} ${surname} ${company_name} \n${industry} ${email} ${phone} \n${age} ${risk_profile} ${created_by}`);
+  console.log(`(POST) Creating Client ${name} ${surname} ${company_name} \n${industry} ${email} ${phone} \n${ageValue} ${risk_profile} ${currency} ${created_by}`);
 
   try {
     const result = await db.query(
       `INSERT INTO clients 
-      (name, surname, company_name, industry, email, phone, age, risk_profile, created_by) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+      (name, surname, company_name, industry, email, phone, age, risk_profile, currency, created_by) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
       RETURNING *`,
-      [name, surname, company_name, industry, email, phone, age, risk_profile, created_by]
+      [name, surname, company_name, industry, email, phone, ageValue, risk_profile, currency, created_by]
     );
     res.status(201).json(result.rows[0]);
-    console.log(`(POST) Created Client ${name} ${surname} ${company_name} \n${industry} ${email} ${phone} \n${age} ${risk_profile} ${created_by}`);
+    console.log(`(POST) Created Client ${name} ${surname} ${company_name}`);
   } catch (error) {
     console.error('Error creating client:', error);
     res.status(500).json({ message: 'Server error creating client' });
@@ -57,16 +71,41 @@ router.post('/', async (req, res) => {
 // Update client
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  console.log(`(PUT) Created Client ${req.body}`);
+  console.log(`(PUT) Updating Client ID: ${id}`);
   
-  const { name, surname, company_name, industry, email, phone, age, risk_profile } = req.body;
+  const { 
+    name, 
+    surname = '', 
+    company_name = '', 
+    industry = '', 
+    email = '', 
+    phone = '', 
+    age, 
+    risk_profile = '',
+    currency = 'USD'
+  } = req.body;
+  
+  // Convert age to null if it's empty or not a valid number
+  const ageValue = age === '' || age === null || age === undefined ? null : parseInt(age, 10);
   
   try {
     const result = await db.query(
       `UPDATE clients SET 
-      name = $1, surname = $2, company_name = $3, industry = $4, email = $5, phone = $6, age = $7, risk_profile = $8 
-      WHERE id = $9 RETURNING *`,
-      [name, surname, company_name, industry, email, phone, age, risk_profile, id]
+      name = $1, surname = $2, company_name = $3, industry = $4, email = $5, 
+      phone = $6, age = $7, risk_profile = $8, currency = $9 
+      WHERE id = $10 RETURNING *`,
+      [
+        name, 
+        surname, 
+        company_name, 
+        industry, 
+        email, 
+        phone, 
+        ageValue, 
+        risk_profile,
+        currency,
+        id
+      ]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Client not found' });

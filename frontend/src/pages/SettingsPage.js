@@ -3,6 +3,7 @@ import axios from 'axios';
 import styled from 'styled-components';
 import Layout from '../components/Layout';
 import { FaSave, FaUser, FaKey, FaAt, FaCog } from 'react-icons/fa';
+import config from '../config';
 
 const PageHeader = styled.div`
   margin-bottom: 2rem;
@@ -178,6 +179,12 @@ const ToggleLabel = styled.div`
   font-size: 0.875rem;
 `;
 
+
+// If they should be visually identical, you can do this:
+const ModalInput = Input;
+const ModalLabel = Label;
+const ModalSelect = Select;
+
 const SettingsPage = ({ user, onLogout }) => {
   const [activeSection, setActiveSection] = useState('profile');
   const [profileForm, setProfileForm] = useState({
@@ -190,8 +197,10 @@ const SettingsPage = ({ user, onLogout }) => {
     confirmPassword: ''
   });
   const [apiSettings, setApiSettings] = useState({
-    apiKey: process.env.REACT_APP_OPENAI_API_KEY || '',
-    model: 'gpt-4'
+    transcriptionService: 'openai',
+    transcriptionApiKey: '',
+    llmService: 'openai',
+    llmApiKey: ''
   });
   const [appSettings, setAppSettings] = useState({
     darkMode: false,
@@ -247,7 +256,7 @@ const SettingsPage = ({ user, onLogout }) => {
     }, 1000);
   };
   
-  const handleChangePassword = (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setSuccessMessage('');
@@ -259,17 +268,33 @@ const SettingsPage = ({ user, onLogout }) => {
       setSubmitting(false);
       return;
     }
+    if (passwordForm.newPassword.length < 8) {
+      setErrorMessage('New password must be at least 8 characters long');
+      setSubmitting(false);
+      return;
+    }
+
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await axios.post(`${config.apiUrl}/api/auth/change-password`, {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      }, { withCredentials: true });
+      
       setSuccessMessage('Password changed successfully');
       setPasswordForm({
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
       });
+    } catch (error) {
+      setErrorMessage(
+        error.response?.data?.message || 
+        'Failed to change password. Please check your current password and try again.'
+      );
+    } finally {
       setSubmitting(false);
-    }, 1000);
+    }
   };
   
   const handleSaveApiSettings = (e) => {
@@ -397,31 +422,63 @@ const SettingsPage = ({ user, onLogout }) => {
           <>
             <SectionTitle>API Settings</SectionTitle>
             <Form onSubmit={handleSaveApiSettings}>
-              <FormGroup>
-                <Label htmlFor="apiKey">OpenAI API Key</Label>
-                <Input
-                  type="text"
-                  id="apiKey"
-                  name="apiKey"
-                  value={apiSettings.apiKey}
-                  onChange={handleApiSettingsChange}
-                  placeholder="Enter your OpenAI API key"
-                />
-              </FormGroup>
+              <SettingsSection>
+                <Label>Transcription Service</Label>
+                <FormGroup>
+                  <ModalLabel htmlFor="transcriptionService">Service</ModalLabel>
+                  <ModalSelect
+                    id="transcriptionService"
+                    name="transcriptionService"
+                    value={apiSettings.transcriptionService}
+                    onChange={handleApiSettingsChange}
+                  >
+                    <option value="openai">OpenAI Whisper</option>
+                    <option value="elevenlabs">ElevenLabs</option>
+                    <option value="gemini">Google Gemini</option>
+                  </ModalSelect>
+                </FormGroup>
+                
+                <FormGroup>
+                  <ModalLabel htmlFor="transcriptionApiKey">API Key</ModalLabel>
+                  <ModalInput
+                    type="password"
+                    id="transcriptionApiKey"
+                    name="transcriptionApiKey"
+                    value={apiSettings.transcriptionApiKey}
+                    onChange={handleApiSettingsChange}
+                    placeholder={`Enter your ${apiSettings.transcriptionService} API key`}
+                  />
+                </FormGroup>
+              </SettingsSection>
               
-              <FormGroup>
-                <Label htmlFor="model">OpenAI Model</Label>
-                <Select
-                  id="model"
-                  name="model"
-                  value={apiSettings.model}
-                  onChange={handleApiSettingsChange}
-                >
-                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                  <option value="gpt-4">GPT-4</option>
-                  <option value="whisper-1">Whisper-1 (Audio)</option>
-                </Select>
-              </FormGroup>
+              <SettingsSection>
+                <Label>LLM Query Service</Label>
+                <FormGroup>
+                  <ModalLabel htmlFor="llmService">Service</ModalLabel>
+                  <ModalSelect
+                    id="llmService"
+                    name="llmService"
+                    value={apiSettings.llmService}
+                    onChange={handleApiSettingsChange}
+                  >
+                    <option value="openai">OpenAI GPT-4</option>
+                    <option value="gemini">Google Gemini</option>
+                    <option value="anthropic">Anthropic Claude</option>
+                  </ModalSelect>
+                </FormGroup>
+                
+                <FormGroup>
+                  <ModalLabel htmlFor="llmApiKey">API Key</ModalLabel>
+                  <ModalInput
+                    type="password"
+                    id="llmApiKey"
+                    name="llmApiKey"
+                    value={apiSettings.llmApiKey}
+                    onChange={handleApiSettingsChange}
+                    placeholder={`Enter your ${apiSettings.llmService} API key`}
+                  />
+                </FormGroup>
+              </SettingsSection>
               
               <SaveButton type="submit" disabled={submitting}>
                 <FaSave size={14} />

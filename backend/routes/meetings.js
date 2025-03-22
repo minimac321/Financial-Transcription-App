@@ -112,7 +112,7 @@ router.get('/:id', async (req, res) => {
     }
     
     const transcriptResult = await db.query(
-      'SELECT * FROM transcripts WHERE meeting_id = $1',
+      'SELECT id, meeting_id, full_text, hard_facts, soft_facts, summary, email_content FROM transcripts WHERE meeting_id = $1',
       [id]
     );
     

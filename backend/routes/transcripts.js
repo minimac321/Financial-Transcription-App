@@ -72,8 +72,22 @@ router.post('/generate-email', async (req, res) => {
       clientName,
       clientCompany,
       userCompany,
-      userName
+      userName,
+      transcriptId  // Add this parameter
     } = req.body;
+
+    // Check if email already exists in database
+    if (transcriptId) {
+      const existingResult = await db.query(
+        'SELECT email_content FROM transcripts WHERE id = $1',
+        [transcriptId]
+      );
+      
+      if (existingResult.rows.length > 0 && existingResult.rows[0].email_content) {
+        console.log('Returning existing email from database');
+        return res.json({ email: existingResult.rows[0].email_content });
+      }
+    }
     
     // Log received data
     console.log('Request data:', {
@@ -153,13 +167,119 @@ router.post('/generate-email', async (req, res) => {
     
     console.log('Received response from OpenAI');
     const email = response.choices[0].message.content.trim();
+
+    // After generating the email, save it to the database
+    if (transcriptId) {
+      await db.query(
+        'UPDATE transcripts SET email_content = $1 WHERE id = $2',
+        [email, transcriptId]
+      );
+      console.log('Email saved to database');
+    }
     
-    // Send the email content back to the client
     res.json({ email });
   } catch (error) {
     console.error('Error generating email:', error);
     res.status(500).json({ 
       message: 'Error generating email summary',
+      error: error.message 
+    });
+  }
+});
+
+// Generate summary from transcript
+router.post('/generate-summary', async (req, res) => {
+  console.log('Received request to generate summary');
+  
+  try {
+    const {
+      transcript,
+      meetingTitle,
+      meetingId,
+      transcriptId
+    } = req.body;
+
+    // Check if summary already exists in database
+    if (transcriptId) {
+      const existingResult = await db.query(
+        'SELECT summary FROM transcripts WHERE id = $1',
+        [transcriptId]
+      );
+      
+      if (existingResult.rows.length > 0 && existingResult.rows[0].summary) {
+        console.log('Returning existing summary from database');
+        return res.json({ summary: existingResult.rows[0].summary });
+      }
+    }
+
+    // If no existing summary, generate a new one
+    console.log('Generating new summary');
+        
+    // Log received data
+    console.log('Request data:', {
+      meetingTitle,
+      transcriptLength: transcript?.length
+    });
+    
+    if (!transcript) {
+      console.log('Error: Transcript is required');
+      return res.status(400).json({ message: 'Transcript is required' });
+    }
+    
+    console.log('Preparing prompt for OpenAI');
+    
+    // Create the prompt
+    const prompt = `
+      As a financial analyst, create a concise summary of the following meeting transcript titled "${meetingTitle || 'Financial Discussion'}".
+      
+      Focus on key financial points, decisions made, action items, and important insights. Keep the summary clear and professional.
+      
+      Meeting transcript: ${transcript.substring(0, Math.min(3000, transcript.length))}
+      
+      If the transcript is cut off, please acknowledge that your summary is based on a partial transcript.
+      
+      Format your summary into paragraphs with clear sections for:
+      1. Overview of the discussion
+      2. Key financial points and decisions
+      3. Action items and next steps (if any)
+    `;
+    
+    console.log('Sending request to OpenAI');
+    
+    // Make sure OpenAI API key is set
+    if (!process.env.OPENAI_API_KEY) {
+      console.log('Error: OpenAI API key is not set');
+      return res.status(500).json({ message: 'OpenAI API key is not configured' });
+    }
+    
+    // Call OpenAI API
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: "You are a professional financial analyst creating meeting summaries." },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 1000,
+    });
+    
+    console.log('Received response from OpenAI');
+    const summary = response.choices[0].message.content.trim();
+
+    // Save summary to database
+    if (transcriptId) {
+      await db.query(
+        'UPDATE transcripts SET summary = $1 WHERE id = $2',
+        [summary, transcriptId]
+      );
+      console.log('Summary saved to database');
+    }
+    
+    // Send the summary content back to the client
+    res.json({ summary });
+  } catch (error) {
+    console.error('Error generating summary:', error);
+    res.status(500).json({ 
+      message: 'Error generating summary',
       error: error.message 
     });
   }

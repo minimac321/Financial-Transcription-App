@@ -4,7 +4,18 @@ import axios from 'axios';
 import styled from 'styled-components';
 import Layout from '../components/Layout';
 import EditableFacts from '../components/EditableFacts';
-import { FaEdit, FaTrash, FaSpinner, FaArrowLeft, FaFileAudio, FaCalendarAlt, FaUser, FaExclamationTriangle, FaCheck, FaSyncAlt } from 'react-icons/fa';
+import { 
+  FaEdit, 
+  FaTrash, 
+  FaSpinner, 
+  FaArrowLeft, 
+  FaFileAudio, 
+  FaCalendarAlt, 
+  FaUser, 
+  FaExclamationTriangle, 
+  FaCheck, 
+  FaSyncAlt,
+  FaEnvelope} from 'react-icons/fa';
 import config from '../config';
 
 const MeetingDetailContainer = styled.div`
@@ -111,6 +122,15 @@ const DeleteButton = styled(ActionButton)`
   }
 `;
 
+const NavyButton = styled(ActionButton)`
+  background-color: #2c3e50;
+  color: white;
+  
+  &:hover:not(:disabled) {
+    background-color: #1a252f;
+  }
+`;
+
 const Section = styled.section`
   background-color: white;
   border-radius: 8px;
@@ -208,6 +228,7 @@ const TabsContainer = styled.div`
 const TabsHeader = styled.div`
   display: flex;
   border-bottom: 1px solid #ecf0f1;
+  flex-wrap: wrap;
 `;
 
 const Tab = styled.button`
@@ -231,6 +252,25 @@ const TabContent = styled.div`
 const TranscriptText = styled.div`
   white-space: pre-wrap;
   line-height: 1.6;
+`;
+
+const SpeakerLine = styled.div`
+  margin-bottom: 1rem;
+`;
+
+const SpeakerName = styled.span`
+  font-weight: 600;
+  color: #3498db;
+  margin-right: 0.5rem;
+`;
+
+const SpeakerText = styled.span`
+  color: #2c3e50;
+`;
+
+const Summary = styled.div`
+  line-height: 1.6;
+  color: #2c3e50;
 `;
 
 const FactsList = styled.ul`
@@ -371,6 +411,24 @@ const ErrorMessage = styled.div`
   font-size: 0.875rem;
 `;
 
+const CopyButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: #1a252f;
+  }
+`;
+
 const MeetingDetail = ({ user, onLogout }) => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -380,6 +438,11 @@ const MeetingDetail = ({ user, onLogout }) => {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailContent, setEmailContent] = useState('');
   const [generatingEmail, setGeneratingEmail] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [emailButtonClicked, setEmailButtonClicked] = useState(false);
+  const [summaryChecked, setSummaryChecked] = useState(false);
+  const [emailChecked, setEmailChecked] = useState(false);
+  const [summary, setSummary] = useState('');
   const [editedMeeting, setEditedMeeting] = useState({
     client_id: '',
     title: '',
@@ -387,7 +450,7 @@ const MeetingDetail = ({ user, onLogout }) => {
     participants: ''
   });
   const [clients, setClients] = useState([]);
-  const [activeTab, setActiveTab] = useState('transcript');
+  const [activeTab, setActiveTab] = useState('summary');
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -401,13 +464,30 @@ const MeetingDetail = ({ user, onLogout }) => {
         
         // Fetch meeting details
         const meetingResponse = await axios.get(`${config.apiUrl}/api/meetings/${id}`, { withCredentials: true });
-        setMeeting(meetingResponse.data);
+        const meetingData = meetingResponse.data;
+
+        setMeeting(meetingData);
         setEditedMeeting({
-          client_id: meetingResponse.data.client_id,
-          title: meetingResponse.data.title,
-          meeting_date: new Date(meetingResponse.data.meeting_date).toISOString().slice(0, 16),
-          participants: meetingResponse.data.participants || ''
+          client_id: meetingData.client_id,
+          title: meetingData.title,
+          meeting_date: new Date(meetingData.meeting_date).toISOString().slice(0, 16),
+          participants: meetingData.participants || ''
         });
+
+        // Set summary and email content from database if available
+        if (meetingData.transcript) {
+          if (meetingData.transcript.summary) {
+            setSummary(meetingData.transcript.summary);
+            setSummaryChecked(true);
+          }
+          
+          if (meetingData.transcript.email_content) {
+            setEmailContent(meetingData.transcript.email_content);
+            setEmailChecked(true);
+          }
+        }
+
+
         
         // Fetch clients for edit form
         const clientsResponse = await axios.get(`${config.apiUrl}/api/clients`, { withCredentials: true });
@@ -450,6 +530,19 @@ const MeetingDetail = ({ user, onLogout }) => {
       }
     };
   }, [id, meeting]);
+  
+  // Initialize empty hard facts and soft facts if none exist
+  useEffect(() => {
+    if (meeting && !meeting.transcript) {
+      setMeeting(prev => ({
+        ...prev,
+        transcript: {
+          hard_facts: [],
+          soft_facts: []
+        }
+      }));
+    }
+  }, [meeting]);
   
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -547,39 +640,34 @@ const MeetingDetail = ({ user, onLogout }) => {
   };
   
   const handleGenerateEmail = async () => {
+    // If we already checked for email and it exists, don't regenerate
+    if (emailChecked && emailContent) {
+      setActiveTab('email');
+      return;
+    }
     setGeneratingEmail(true);
+    setActiveTab('email');
     
     try {
       // Fetch client data
-      axios.get(`${config.apiUrl}/api/clients`)
-      // const clientResponse = await axios.get(`/api/clients/${meeting.client_id}`, { 
       const clientResponse = await axios.get(`${config.apiUrl}/api/clients/${meeting.client_id}`, { 
         withCredentials: true 
       });
       
       const client = clientResponse.data;
-      
-      // Check if the transcript exists
-      if (!meeting.transcript || !meeting.transcript.full_text) {
-        alert('No transcript found. Please ensure the meeting has a completed transcript.');
-        setGeneratingEmail(false);
-        return;
-      }
-      
-      // Prepare data for the API call
+
       const emailData = {
-        transcript: meeting.transcript.full_text,
-        hardFacts: meeting.transcript.hard_facts || [],
-        softFacts: meeting.transcript.soft_facts || [],
+        transcript: meeting.transcript?.full_text || '',
+        hardFacts: meeting.transcript?.hard_facts || [],
+        softFacts: meeting.transcript?.soft_facts || [],
         meetingTitle: meeting.title,
         meetingDate: meeting.meeting_date,
         clientName: client.name + (client.surname ? ' ' + client.surname : ''),
         clientCompany: client.company_name || client.name,
         userCompany: 'Advanced Insight',
-        userName: 'Ryan McCarlie'
+        userName: 'Ryan McCarlie',
+        transcriptId: meeting.transcript?.id  // Pass transcript ID to check for existing email
       };
-      
-      console.log('Sending email generation request with data:', emailData);
       
       // Generate email using OpenAI
       const response = await axios.post(`${config.apiUrl}/api/transcripts/generate-email`, emailData, { 
@@ -588,23 +676,93 @@ const MeetingDetail = ({ user, onLogout }) => {
       });
       
       setEmailContent(response.data.email);
-      setEmailModalOpen(true);
+      setEmailChecked(true); // Mark as checked
+      showToast('Email generated successfully!');
     } catch (error) {
       console.error('Error generating email:', error);
-      
-      let errorMessage = 'Failed to generate email summary.';
-      
-      if (error.response && error.response.data) {
-        errorMessage += ' ' + (error.response.data.message || error.response.data);
-      } else if (error.message) {
-        errorMessage += ' ' + error.message;
-      }
-      
-      alert(errorMessage + ' Please try again.');
+      setEmailContent('Failed to generate email summary. Please try again.');
     } finally {
       setGeneratingEmail(false);
     }
   };
+
+  // Add a toast notification function
+  const showToast = (message) => {
+    alert(message); // Replace with your toast library if available
+  };
+  
+  const handleGenerateSummary = async () => {
+    // If we already checked for summary and it exists, don't regenerate
+    if (summaryChecked && summary) {
+      return;
+    }
+
+    if (!meeting.transcript) {
+      setSummary('No transcript available to generate summary.');
+      return;
+    }
+    setGeneratingSummary(true);
+
+    
+    try {
+      // Prepare data for the API call
+      const summaryData = {
+        transcript: meeting.transcript.full_text,
+        meetingTitle: meeting.title,
+        transcriptId: meeting.transcript.id  // Pass transcript ID to check for existing summary
+      };
+      
+      // Make API call to generate summary
+      const response = await axios.post(`${config.apiUrl}/api/transcripts/generate-summary`, summaryData, { 
+        withCredentials: true,
+        timeout: 30000
+      });
+      
+      setSummary(response.data.summary);
+      setSummaryChecked(true); // Mark as checked
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      setSummary('Failed to generate summary. Please try again.');
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
+  
+  const formatTranscriptWithSpeakers = (transcriptText) => {
+    if (!transcriptText) return null;
+    
+    // This is a simple example - you may need to adjust based on your actual transcript format
+    const lines = transcriptText.split('\n');
+    return lines.map((line, index) => {
+      const speakerMatch = line.match(/^(Speaker \d+|[A-Za-z]+):\s*(.*)/);
+      
+      if (speakerMatch) {
+        const [_, speaker, text] = speakerMatch;
+        return (
+          <SpeakerLine key={index}>
+            <SpeakerName>{speaker}:</SpeakerName>
+            <SpeakerText>{text}</SpeakerText>
+          </SpeakerLine>
+        );
+      }
+      
+      return <SpeakerLine key={index}>{line}</SpeakerLine>;
+    });
+  };
+  
+  // Initialize tabs based on meeting status
+  useEffect(() => {
+    if (meeting) {
+      if (meeting.status === 'completed') {
+        if (!summary) {
+          handleGenerateSummary();
+        }
+        setActiveTab('summary');
+      } else {
+        setActiveTab('hard-facts');
+      }
+    }
+  }, [meeting?.status]);
   
   if (loading) {
     return (
@@ -689,9 +847,10 @@ const MeetingDetail = ({ user, onLogout }) => {
             
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
               {meeting.status === 'completed' && (
-                <ActionButton onClick={handleGenerateEmail} style={{ backgroundColor: '#3498db' }}>
-                  Generate Email Summary
-                </ActionButton>
+                <NavyButton onClick={handleGenerateEmail}>
+                  <FaEnvelope size={14} />
+                  Generate Email
+                </NavyButton>
               )}
               
               {meeting.status === 'processing' && (
@@ -703,11 +862,12 @@ const MeetingDetail = ({ user, onLogout }) => {
             </div>
           </TranscriptStatus>
           
-          {meeting.status === 'pending' && (
+          {/* File Upload Form for Pending or Failed status */}
+          {(meeting.status === 'pending' || meeting.status === 'failed') && (
             <FileUploadForm onSubmit={handleFileUpload}>
               <FileInputLabel>
                 <FaFileAudio size={14} />
-                Select Audio File
+                {meeting.status === 'failed' ? 'Try a different file' : 'Upload Audio File'}
                 <HiddenFileInput 
                   type="file" 
                   accept=".mp3,.wav,.m4a,.ogg" 
@@ -728,11 +888,12 @@ const MeetingDetail = ({ user, onLogout }) => {
             </FileUploadForm>
           )}
           
-          {(meeting.status === 'failed' || meeting.status === 'completed') && (
+          {/* Allow replacement of audio file */}
+          {meeting.status === 'completed' && (
             <FileUploadForm onSubmit={handleFileUpload}>
               <FileInputLabel>
                 <FaFileAudio size={14} />
-                {meeting.status === 'failed' ? 'Try a different file' : 'Replace audio file'}
+                Replace audio file
                 <HiddenFileInput 
                   type="file" 
                   accept=".mp3,.wav,.m4a,.ogg" 
@@ -753,105 +914,199 @@ const MeetingDetail = ({ user, onLogout }) => {
             </FileUploadForm>
           )}
           
-          {meeting.status === 'completed' && meeting.transcript && (
-            <TabsContainer>
-              <TabsHeader>
+          {/* Tabs Container */}
+          <TabsContainer>
+            <TabsHeader>
+              {/* Show Summary tab for completed transcripts */}
+              {meeting.status === 'completed' && (
+                <Tab 
+                  active={activeTab === 'summary'} 
+                  onClick={() => setActiveTab('summary')}
+                >
+                  Summary
+                </Tab>
+              )}
+              
+              {/* Hard Facts and Soft Facts tabs always visible */}
+              <Tab 
+                active={activeTab === 'hard-facts'} 
+                onClick={() => setActiveTab('hard-facts')}
+              >
+                Hard Facts
+              </Tab>
+              
+              <Tab 
+                active={activeTab === 'soft-facts'} 
+                onClick={() => setActiveTab('soft-facts')}
+              >
+                Soft Facts
+              </Tab>
+              
+              {/* Full Transcript tab for completed transcripts */}
+              {meeting.status === 'completed' && (
                 <Tab 
                   active={activeTab === 'transcript'} 
                   onClick={() => setActiveTab('transcript')}
                 >
                   Full Transcript
                 </Tab>
-                <Tab 
-                  active={activeTab === 'hard-facts'} 
-                  onClick={() => setActiveTab('hard-facts')}
-                >
-                  Hard Facts
-                </Tab>
-                <Tab 
-                  active={activeTab === 'soft-facts'} 
-                  onClick={() => setActiveTab('soft-facts')}
-                >
-                  Soft Facts
-                </Tab>
-              </TabsHeader>
+              )}
               
-              <TabContent>
-                {activeTab === 'transcript' && (
+              {/* Email Summary tab */}
+              <Tab 
+                active={activeTab === 'email'} 
+                onClick={() => {
+                  setActiveTab('email');
+                  if (!emailContent && meeting.status === 'completed') {
+                    handleGenerateEmail();
+                  }
+                }}
+              >
+                Email Summary
+              </Tab>
+            </TabsHeader>
+            
+            <TabContent>
+              {/* Summary Tab Content */}
+              {activeTab === 'summary' && (
+                meeting.status === 'completed' ? (
+                  generatingSummary ? (
+                    <LoadingSpinner>
+                      <FaSpinner size={24} />
+                      <div style={{ marginLeft: '1rem' }}>Generating summary...</div>
+                    </LoadingSpinner>
+                  ) : (
+                    <Summary>
+                      {summary || 'Summary not available. Please try generating it again.'}
+                    </Summary>
+                  )
+                ) : (
+                  <EmptyState>Transcript processing required for summary</EmptyState>
+                )
+              )}
+              
+              {/* Hard Facts Tab Content */}
+              {activeTab === 'hard-facts' && (
+                <EditableFacts 
+                  facts={meeting.transcript?.hard_facts || []} 
+                  setFacts={(updatedFacts) => {
+                    setMeeting(prev => ({
+                      ...prev,
+                      transcript: {
+                        ...prev.transcript,
+                        hard_facts: updatedFacts
+                      }
+                    }));
+                    
+                    // Update in the database if transcript exists
+                    if (meeting.transcript?.id) {
+                      axios.put(`${config.apiUrl}/api/transcripts/${meeting.transcript.id}`, {
+                        ...meeting.transcript,
+                        hard_facts: updatedFacts
+                      }, { withCredentials: true }).catch(err => {
+                        console.error('Error updating hard facts:', err);
+                      });
+                    }
+                  }}
+                  factType="hard"
+                />
+              )}
+              
+              {/* Soft Facts Tab Content */}
+              {activeTab === 'soft-facts' && (
+                <EditableFacts 
+                  facts={meeting.transcript?.soft_facts || []} 
+                  setFacts={(updatedFacts) => {
+                    setMeeting(prev => ({
+                      ...prev,
+                      transcript: {
+                        ...prev.transcript,
+                        soft_facts: updatedFacts
+                      }
+                    }));
+                    
+                    // Update in the database if transcript exists
+                    if (meeting.transcript?.id) {
+                      axios.put(`${config.apiUrl}/api/transcripts/${meeting.transcript.id}`, {
+                        ...meeting.transcript,
+                        soft_facts: updatedFacts
+                      }, { withCredentials: true }).catch(err => {
+                        console.error('Error updating soft facts:', err);
+                      });
+                    }
+                  }}
+                  factType="soft"
+                />
+              )}
+              
+              {/* Full Transcript Tab Content */}
+              {activeTab === 'transcript' && (
+                meeting.status === 'completed' && meeting.transcript?.full_text ? (
                   <TranscriptText>
-                    {meeting.transcript.full_text}
+                    {formatTranscriptWithSpeakers(meeting.transcript.full_text)}
                   </TranscriptText>
-                )}
-                
-                {activeTab === 'hard-facts' && (
-                  meeting.transcript && meeting.transcript.hard_facts ? (
-                    <EditableFacts 
-                      facts={meeting.transcript.hard_facts} 
-                      setFacts={(updatedFacts) => {
-                        setMeeting(prev => ({
-                          ...prev,
-                          transcript: {
-                            ...prev.transcript,
-                            hard_facts: updatedFacts
-                          }
-                        }));
-                        
-                        // Update in the database
-                        if (meeting.transcript.id) {
-                          axios.put(`${config.apiUrl}/api/transcripts/${meeting.transcript.id}`, {
-                            ...meeting.transcript,
-                            hard_facts: updatedFacts
-                          }, { withCredentials: true }).catch(err => {
-                            console.error('Error updating hard facts:', err);
-                          });
-                        }
-                      }}
-                      factType="hard"
-                    />
+                ) : (
+                  <EmptyState>
+                    {meeting.status === 'completed' ? (
+                      <>
+                        <FaExclamationTriangle size={24} />
+                        <div>Transcript data not found. There might have been an issue processing this meeting.</div>
+                      </>
+                    ) : (
+                      'Complete audio processing to view full transcript'
+                    )}
+                  </EmptyState>
+                )
+              )}
+              
+              {/* Email Summary Tab Content */}
+              {activeTab === 'email' && (
+                <div>
+                  {generatingEmail ? (
+                    <LoadingSpinner>
+                      <FaSpinner size={24} />
+                      <div style={{ marginLeft: '1rem' }}>Generating email summary...</div>
+                    </LoadingSpinner>
+                  ) : emailContent ? (
+                    <>
+                      <pre 
+                        style={{ 
+                          whiteSpace: 'pre-wrap', 
+                          fontFamily: 'inherit',
+                          background: '#f8f9fa',
+                          padding: '1rem',
+                          borderRadius: '4px',
+                          fontSize: '0.9rem',
+                          lineHeight: '1.5',
+                          border: '1px solid #e9ecef'
+                        }}
+                      >
+                        {emailContent}
+                      </pre>
+                      <CopyButton 
+                        onClick={() => {
+                          navigator.clipboard.writeText(emailContent);
+                          alert('Email copied to clipboard!');
+                        }}
+                      >
+                        Copy to Clipboard
+                      </CopyButton>
+                    </>
+                  ) : meeting.status === 'completed' ? (
+                    <EmptyState>
+                      <div>Click "Generate Email" to create an email summary</div>
+                      <NavyButton onClick={handleGenerateEmail}>
+                        <FaEnvelope size={14} />
+                        Generate Email
+                      </NavyButton>
+                    </EmptyState>
                   ) : (
-                    <EmptyState>No hard facts identified</EmptyState>
-                  )
-                )}
-                
-                {activeTab === 'soft-facts' && (
-                  meeting.transcript && meeting.transcript.soft_facts ? (
-                    <EditableFacts 
-                      facts={meeting.transcript.soft_facts} 
-                      setFacts={(updatedFacts) => {
-                        setMeeting(prev => ({
-                          ...prev,
-                          transcript: {
-                            ...prev.transcript,
-                            soft_facts: updatedFacts
-                          }
-                        }));
-                        
-                        // Update in the database
-                        if (meeting.transcript.id) {
-                          axios.put(`${config.apiUrl}/api/transcripts/${meeting.transcript.id}`, {
-                            ...meeting.transcript,
-                            soft_facts: updatedFacts
-                          }, { withCredentials: true }).catch(err => {
-                            console.error('Error updating soft facts:', err);
-                          });
-                        }
-                      }}
-                      factType="soft"
-                    />
-                  ) : (
-                    <EmptyState>No soft facts identified</EmptyState>
-                  )
-                )}
-              </TabContent>
-            </TabsContainer>
-          )}
-          
-          {meeting.status === 'completed' && !meeting.transcript && (
-            <EmptyState>
-              <FaExclamationTriangle size={24} />
-              <div>Transcript data not found. There might have been an issue processing this meeting.</div>
-            </EmptyState>
-          )}
+                    <EmptyState>Complete audio processing to generate email summary</EmptyState>
+                  )}
+                </div>
+              )}
+            </TabContent>
+          </TabsContainer>
         </Section>
       </MeetingDetailContainer>
       
@@ -873,7 +1128,7 @@ const MeetingDetail = ({ user, onLogout }) => {
                   <option value="">Select a client</option>
                   {clients.map(client => (
                     <option key={client.id} value={client.id}>
-                      {client.name}
+                      {client.name} {client.surname}
                     </option>
                   ))}
                 </ModalSelect>
@@ -928,49 +1183,8 @@ const MeetingDetail = ({ user, onLogout }) => {
           </ModalContent>
         </Modal>
       )}
-
-      {/* Email Summary Modal */}
-      {emailModalOpen && (
-        <Modal>
-          <ModalContent style={{ maxWidth: '700px' }}>
-            <ModalTitle>Generated Email Summary</ModalTitle>
-            
-            <div>
-              <pre 
-                style={{ 
-                  whiteSpace: 'pre-wrap', 
-                  fontFamily: 'inherit',
-                  background: '#f8f9fa',
-                  padding: '1rem',
-                  borderRadius: '4px',
-                  fontSize: '0.9rem',
-                  lineHeight: '1.5',
-                  border: '1px solid #e9ecef'
-                }}
-              >
-                {emailContent}
-              </pre>
-            </div>
-            
-            <ModalButtonGroup>
-              <CancelButton type="button" onClick={() => setEmailModalOpen(false)}>
-                Close
-              </CancelButton>
-              <SubmitButton 
-                type="button" 
-                onClick={() => {
-                  navigator.clipboard.writeText(emailContent);
-                  alert('Email copied to clipboard!');
-                }}
-              >
-                Copy to Clipboard
-              </SubmitButton>
-            </ModalButtonGroup>
-          </ModalContent>
-        </Modal>
-      )}
     </Layout>
   );
-}
+};
 
 export default MeetingDetail;
